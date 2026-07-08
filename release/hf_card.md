@@ -1,0 +1,56 @@
+---
+license: mit
+base_model: $TARGET_MODEL
+tags:
+  - eagle-3
+  - speculative-decoding
+  - qwen3
+  - finance
+  - draftforge
+---
+
+# $HEAD_NAME
+
+EAGLE-3 speculative decoding draft head trained on $TARGET_MODEL with finance-domain emphasis.
+
+## Intended Use
+
+Drop-in draft head for `vllm serve $TARGET_MODEL --speculative-config '{"method":"eagle3",...}'` and SGLang's `--speculative-algorithm EAGLE3 --speculative-draft-model-path <this-repo>`.
+
+## Training
+
+- Recipe: EAGLE-3 (NeurIPS'25, Li et al.)
+- Tri-layer fusion: hidden states from layers [8, 20, 32] of $TARGET_MODEL (low/mid/high)
+- Direct token prediction (not feature-level)
+- Training-time-test with horizon 4
+- DeepSpeed ZeRO-2, bf16, activation checkpointing
+- Seeds: 42, 0, 1234 (≥3 independent runs)
+
+## Results
+
+$MANIFEST_JSON
+
+## Bench
+
+```bash
+bash bench.sh
+```
+
+One-command reproduction. See `results/` for committed per-seed loss curves and acceptance-grid sweeps.
+
+## Limitations
+
+- Draft head is calibrated to $TARGET_MODEL's hidden-state geometry; do not load against a different base model.
+- Acceptance rates degrade on out-of-distribution prompts (see domain-shift analysis in writeup).
+- Trained on a single hardware class (H100 bf16). Numerical behavior on other accelerators may differ.
+
+## Citation
+
+```bibtex
+@misc{draftforge2026,
+  title={DraftForge: Training EAGLE-3 Draft Heads for Domain-Targeted Speculative Decoding},
+  author={Bosco, Rajath John},
+  year={2026},
+  url={https://github.com/rajath/draftforge}
+}
+```
