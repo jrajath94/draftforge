@@ -1,0 +1,47 @@
+# DraftForge data pipeline config (sample).
+# Override --seed, --config, --skip-tokenize from CLI.
+#
+# Quick smoke test:
+#   python -m data.prepare --config data/config.yaml --skip-tokenize
+#
+# Full run (requires HF auth + Qwen3 tokenizer available):
+#   python -m data.prepare --config data/config.yaml
+
+seed: 42
+output_dir: ./artifacts/data
+
+# At least one source required. Each source contributes a slice;
+# the orchestrator emits one combined deduped dataset.
+sources:
+  - name: eagle3-sharegpt
+    type: sharegpt
+    hf_dataset_id: yuhuili/EAGLE3-LLaMA3.1-Instruct-8B
+    max_examples: 70000
+    domain: general
+  - name: openhermes-subset
+    type: openhermes
+    hf_dataset_id: teknium/OpenHermes-2.5
+    max_examples: 30000
+    domain: general
+  # Finance slice: provide a local JSONL of Q&A pairs (or supply
+  # hf_dataset_id for FinOpsGym if/when published).
+  - name: finance-qa
+    type: finance
+    path: ./data/finance/finance_qa.jsonl
+    max_examples: 10000
+
+dedup:
+  method: exact+minhash    # exact first, then minhash near-dup
+  minhash_threshold: 0.85
+  num_perm: 128
+
+split:
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  stratify_by: domain
+
+tokenizer:
+  name_or_path: Qwen/Qwen3-14B
+  max_length: 4096
+  trust_remote_code: false

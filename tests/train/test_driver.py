@@ -1,0 +1,117 @@
+"""Unit tests for pure helper functions in train/train_eagle3.py.
+
+The driver itself depends on a 14B-parameter HF model — exercised on rented
+GPU. These tests focus on the deterministic helper functions that don't need
+GPU or HF model loading.
+"""
+
+from __future__ import annotations
+
+import json
+import random
+from pathlib import Path
+from typing import Any
+
+import pytest
+import torch
+
+from train.train_eagle3 import (
+    lr_schedule,
+    set_seed,
+    write_loss_csv,
+    write_loss_curve,
+)
+
+# ---- set_seed ----------------------------------------------------------------
+
+
+def test_set_seed_python_random_deterministic() -> None:
+    set_seed(7)
+    a = random.random()
+    set_seed(7)
+    b = random.random()
+    assert a == b
+
+
+def test_set_seed_torch_deterministic() -> None:
+    set_seed(123)
+    a = torch.rand(1).item()
+    set_seed(123)
+    b = torch.rand(1).item()
+    assert a == b
+
+
+# ---- lr_schedule -------------------------------------------------------------
+
+
+def _sched_cfg(warmup_steps: int, max_steps: int) -> Any:
+    """Build a minimal object with the attrs lr_schedule reads."""
+    o = type("O", (), {"warmup_steps": warmup_steps})
+    t = type("T", (), {"max_steps": max_steps})
+    c = type("C", (), {"optimizer": o(), "training": t()})
+    return c()
+
+
+def test_lr_schedule_warmup_monotone() -> None:
+    cfg: Any = _sched_cfg(warmup_steps=10, max_steps=100)
+    # Warmup
+    assert lr_schedule(0, cfg) == pytest.approx(0.0)
+    assert lr_schedule(5, cfg) == pytest.approx(0.5)
+    assert lr_schedule(10, cfg) == pytest.approx(1.0)
+    # Decay
+    assert 0.0 < lr_schedule(50, cfg) < 1.0
+
+
+def test_lr_schedule_at_max_steps_is_zero() -> None:
+    cfg: Any = _sched_cfg(warmup_steps=10, max_steps=100)
+    assert lr_schedule(100, cfg) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_lr_schedule_past_max_steps_clamped() -> None:
+    cfg: Any = _sched_cfg(warmup_steps=10, max_steps=100)
+    assert lr_schedule(500, cfg) == pytest.approx(0.0, abs=1e-6)
+
+
+# ---- write_loss_curve / write_loss_csv --------------------------------------
+
+
+def test_write_loss_curve_writes_json(tmp_path: Path) -> None:
+    rows = [{"step": 0, "loss": 1.5, "lr": 1e-4}, {"step": 1, "loss": 1.2, "lr": 9e-5}]
+    p = tmp_path / "lc.json"
+    write_loss_curve(p, rows)
+    loaded = json.loads(p.read_text())
+    assert loaded[0]["step"] == 0
+    assert loaded[1]["loss"] == 1.2
+
+
+def test_write_loss_csv_writes_header_and_rows(tmp_path: Path) -> None:
+    rows = [{"step": 0, "loss": 1.5, "lr": 1e-4}]
+    p = tmp_path / "lc.csv"
+    write_loss_csv(p, rows)
+    text = p.read_text()
+    assert "step,loss,lr" in text
+    assert "0,1.500000,0.00010000" in text
+
+
+def test_write_loss_csv_handles_empty(tmp_path: Path) -> None:
+    p = tmp_path / "lc_empty.csv"
+    write_loss_csv(p, [])
+    assert p.read_text() == "step,loss,lr\n"
+
+
+# ---- compute_loss smoke ------------------------------------------------------
+
+
+def test_compute_loss_returns_scalar_on_stub() -> None:
+    from train.train_eagle3 import compute_loss
+
+    class _Head:
+        def __call__(self, input_ids: torch.Tensor) -> torch.Tensor:
+            return torch.randn(2, 4, 5)
+
+    head: Any = _Head()
+    input_ids = torch.randint(0, 5, (2, 4))
+    labels = input_ids.clone()
+    loss = compute_loss(head, input_ids, labels, cfg=None)  # type: ignore[arg-type]  # type: ignore[arg-type]
+    assert loss.dim() == 0
+    assert torch.isfinite(loss)

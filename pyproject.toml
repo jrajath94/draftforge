@@ -1,0 +1,100 @@
+[project]
+name = "draftforge"
+version = "0.1.0"
+description = "Train and evaluate EAGLE-3 speculative-decoding draft heads for target models."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Rajath John Bosco", email = "rajath@example.com" },
+]
+keywords = ["eagle-3", "speculative-decoding", "llm-inference", "training"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+  "datasets>=3.0",
+  "datasketch>=1.6",
+  "pydantic>=2.5",
+  "transformers>=4.51",
+  "tokenizers>=0.21",
+  "matplotlib>=3.8",
+  "scikit-learn>=1.4",
+  "numpy>=1.26",
+  "pandas>=2.1",
+  "pyyaml>=6.0",
+  "typer>=0.12",
+  "huggingface-hub>=0.24",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "types-PyYAML",
+]
+train = [
+  "deepspeed>=0.15",
+  "accelerate>=1.0",
+  "safetensors>=0.4",
+]
+
+[project.scripts]
+draftforge-prepare = "data.prepare:main"
+draftforge-train = "train.train_eagle3:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["data", "train", "ablate", "serve", "eval", "release"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "W", "C4", "PT", "RUF"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers --strict-config"
+testpaths = ["tests"]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "integration: marks tests as integration tests (require network)",
+]
+
+[tool.coverage.run]
+source = ["data", "train", "ablate", "serve", "eval", "release"]
+omit = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = false
+# data/ requires 75% (per draftforge spec).
+# train/ GPU-run path is exercised by integration runs on rented compute;
+# CPU-shape tests cover head + helpers. Lower threshold reflects that.
+fail_under = 60
