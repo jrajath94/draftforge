@@ -4,7 +4,7 @@
 # Quick smoke test:
 #   python -m data.prepare --config data/config.yaml --skip-tokenize
 #
-# Full run (requires HF auth + Qwen3 tokenizer available):
+# Full run (Qwen3-4B-Instruct-2507 is open-weight, no HF token required):
 #   python -m data.prepare --config data/config.yaml
 
 seed: 42
@@ -43,6 +43,6 @@ split:
   stratify_by: domain
 
 tokenizer:
-  name_or_path: Qwen/Qwen3-14B
+  name_or_path: Qwen/Qwen3-4B-Instruct-2507
   max_length: 4096
   trust_remote_code: false
