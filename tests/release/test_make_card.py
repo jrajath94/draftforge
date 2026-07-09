@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import runpy
 import subprocess
 import sys
+import warnings
 from pathlib import Path
+
+import pytest
 
 from release.make_card import render_card
 
@@ -153,16 +157,13 @@ def test_dunder_main_block_executes(tmp_path: Path) -> None:
     when the module is run as __main__ (subprocess invocations are a separate
     process and don't contribute to this coverage slot).
     """
-    import runpy
-    import sys as _sys
-
     template = tmp_path / "tpl.md"
     template.write_text("# $HEAD_NAME for $TARGET_MODEL\n\nx\n", encoding="utf-8")
     out = tmp_path / "dunder.md"
 
     # Inject args into argv so the parser sees them.
-    saved_argv = _sys.argv
-    _sys.argv = [
+    saved_argv = sys.argv
+    sys.argv = [
         "release.make_card",
         "--template", str(template),
         "--results", str(tmp_path),
@@ -171,13 +172,17 @@ def test_dunder_main_block_executes(tmp_path: Path) -> None:
         "--out", str(out),
     ]
     try:
-        try:
-            runpy.run_module("release.make_card", run_name="__main__", alter_sys=True)
-        except SystemExit as e:
-            # sys.exit(0) at end of happy path — expected.
-            assert e.code == 0
+        with warnings.catch_warnings():
+            # runpy emits a RuntimeWarning if the module was already imported
+            # earlier in the test session — harmless here, we just want
+            # the __main__ block executed for coverage.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            with pytest.raises(SystemExit) as excinfo:
+                runpy.run_module("release.make_card", run_name="__main__", alter_sys=True)
+        # sys.exit(0) at end of happy path — expected.
+        assert excinfo.value.code == 0
     finally:
-        _sys.argv = saved_argv
+        sys.argv = saved_argv
 
     assert out.exists()
     text = out.read_text(encoding="utf-8")
