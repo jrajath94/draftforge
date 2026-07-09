@@ -12,7 +12,21 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ## [Unreleased]
 
-(nothing yet — the next entry will be the v1.0.1 patch)
+### Changed
+- **Target model: Qwen/Qwen3-14B → Qwen/Qwen3-4B-Instruct-2507** (Dec 2025,
+  latest Qwen 4B checkpoint, open-weight, 36 layers / hidden_size=2560 /
+  vocab=151936). Rescales tri-layer fusion indices [8, 20, 32] (40 layers,
+  20%/50%/80% depth) → **[7, 18, 29]** (36 layers, 19%/50%/81% depth).
+  Same fractional early/mid/late coverage, model-specific rescale. No HF
+  token required. Local gates: 166 tests pass, ruff + mypy clean.
+
+### Pending (HUMAN-OWNED)
+- `WRITEUP.md` Method §2.1 (architecture + layer indices for Qwen3-4B)
+- `DECISIONS.md` Q2 (tri-layer [7, 18, 29] rationale for 36-layer depth)
+- `README.md` Quickstart + Limitations sections
+
+  Per workspace `CLAUDE.md` §2.5, design narrative belongs to the human.
+  Config + code + tests updated by Claude; prose awaits human review.
 
 ---
 

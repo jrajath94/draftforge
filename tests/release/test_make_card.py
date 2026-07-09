@@ -19,14 +19,14 @@ def test_render_card_substitutes_placeholders(tmp_path: Path) -> None:
     render_card(
         template_path=template,
         results_root=tmp_path,  # empty; manifest = {}
-        head_name="Qwen3-14B-EAGLE3-Finance",
-        target_model="Qwen/Qwen3-14B",
+        head_name="Qwen3-4B-Instruct-2507-EAGLE3-Finance",
+        target_model="Qwen/Qwen3-4B-Instruct-2507",
         out_path=out,
     )
     content = out.read_text(encoding="utf-8")
-    assert "Qwen/Qwen3-14B" in content
-    assert "Qwen3-14B-EAGLE3-Finance" in content
-    assert "base_model: Qwen/Qwen3-14B" in content
+    assert "Qwen/Qwen3-4B-Instruct-2507" in content
+    assert "Qwen3-4B-Instruct-2507-EAGLE3-Finance" in content
+    assert "base_model: Qwen/Qwen3-4B-Instruct-2507" in content
 
 
 # ---- CLI entrypoint -------------------------------------------------------
