@@ -41,6 +41,11 @@ Staff_Level_Projects_Spec_July2026.md
 CLAUDE.md
 IMPLEMENTATION_BRIEF.md
 GoodputLab_Inference_Implementation_Brief.md
+AgentSLA_Implementation_Brief.md
+*.candidacy.md
+*candidacy_playbook*
+EXECUTION_PROMPT.md
+configs/runtime*.env
 
 # Python build artifacts
 __pycache__/
