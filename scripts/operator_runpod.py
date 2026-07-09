@@ -63,13 +63,22 @@ RUNPOD_GPU_QUERY = """query GpuTypes {
 # ── recommend: live GPU table from RunPod GraphQL API ─────────────────────────
 
 
+# Cloudflare (which fronts api.runpod.io) 403s requests without an explicit
+# User-Agent — urllib's default "Python-urllib/3.12" is blocked as a bot.
+RUNPOD_USER_AGENT = "DraftForge/0.1 (operator; +https://github.com/jrajath94/draftforge)"
+
+
 def _runpod_gpu_types() -> list[dict[str, Any]]:
     """Fetch GPU types + prices from RunPod's public GraphQL endpoint."""
     payload = json.dumps({"query": RUNPOD_GPU_QUERY}).encode("utf-8")
     req = urllib.request.Request(
         RUNPOD_GPU_API,
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": RUNPOD_USER_AGENT,
+            "Accept": "application/json",
+        },
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         body = json.loads(resp.read().decode("utf-8"))
