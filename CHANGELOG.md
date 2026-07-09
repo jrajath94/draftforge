@@ -21,9 +21,9 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
   token required. Local gates: 166 tests pass, ruff + mypy clean.
 
 ### Pending (HUMAN-OWNED)
-- `WRITEUP.md` Method §2.1 (architecture + layer indices for Qwen3-4B)
-- `DECISIONS.md` Q2 (tri-layer [7, 18, 29] rationale for 36-layer depth)
-- `README.md` Quickstart + Limitations sections
+- _None at v1.1-cycle open. Narrative refresh (WRITEUP §2.1 retarget,
+  DECISIONS.md created, README Quickstart + Limitations + Prerequisites
+  + Cost Breakdown all updated) landed in `e88ad8e`._
 
   Per workspace `CLAUDE.md` §2.5, design narrative belongs to the human.
   Config + code + tests updated by Claude; prose awaits human review.
