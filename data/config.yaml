@@ -30,6 +30,20 @@ sources:
     path: ./data/finance/finance_qa.jsonl
     max_examples: 10000
     domain: finance
+  # Finance slice (SEC EDGAR fallback): pulls XBRL company-facts JSON for a
+  # default set of 8 large-cap issuers (Apple, Microsoft, Amazon, NVIDIA,
+  # IBM, 3M, Wells Fargo, Pfizer). Override `ciks` to narrow the sweep or
+  # pass `path` to replay from a local JSONL cache (offline mode).
+  - name: edgar-finance
+    type: edgar
+    max_examples: 5000
+    domain: finance
+    ciks:
+      - 0000320193   # Apple
+      - 0000789019   # Microsoft
+      - 0001018724   # Amazon
+      - 0001045810   # NVIDIA
+    user_agent: "DraftForge/0.1 (research; contact@example.com)"
 
 dedup:
   method: exact+minhash    # exact first, then minhash near-dup

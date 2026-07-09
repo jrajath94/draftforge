@@ -206,7 +206,7 @@ def test_load_source_finance_dispatches(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
 
 def test_load_source_unknown_type_raises() -> None:
-    """Source type not in {SHAREGPT, OPENHERMES, FINANCE} → ValueError."""
+    """Source type not in {SHAREGPT, OPENHERMES, FINANCE, EDGAR} → ValueError."""
     from data import prepare
 
     # SimpleNamespace bypasses pydantic validation — simulate a stray enum value
@@ -219,6 +219,120 @@ def test_load_source_unknown_type_raises() -> None:
     )
     with pytest.raises(ValueError, match="unknown source type"):
         prepare._load_source(fake_src)  # type: ignore[arg-type]
+
+
+def test_load_source_edgar_dispatches_with_ciks(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """EDGAR source with ciks override → load_edgar_finance called with those ciks."""
+    from data import prepare
+    from data.types import Example
+
+    fake_examples = [
+        Example(
+            id="edgar-apple-revenues-2023",
+            domain="finance",
+            messages=[{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}],
+            source="edgar",
+        )
+    ]
+    cache_path = tmp_path / "edgar_cache.jsonl"
+    captured: dict = {}
+
+    def fake_loader(
+        *,
+        ciks: list[str] | None,
+        path: Path | None,
+        max_examples: int,
+        user_agent: str,
+        offline: bool,
+    ) -> list[Example]:
+        captured["ciks"] = ciks
+        captured["path"] = path
+        captured["max_examples"] = max_examples
+        captured["user_agent"] = user_agent
+        captured["offline"] = offline
+        return fake_examples
+
+    monkeypatch.setattr(prepare, "load_edgar_finance", fake_loader)
+    cfg = SourceConfig(
+        name="edgar-finance",
+        type=SourceType.EDGAR,
+        max_examples=200,
+        domain="finance",
+        ciks=["0000320193", "0000789019"],
+        user_agent="DraftForge/test (test@example.com)",
+    )
+    out = prepare._load_source(cfg)
+    assert out == fake_examples
+    assert captured["ciks"] == ["0000320193", "0000789019"]
+    assert captured["max_examples"] == 200
+    assert captured["user_agent"] == "DraftForge/test (test@example.com)"
+    # Without path or hf_dataset_id, loader runs in network mode (offline=False)
+    assert captured["offline"] is False
+
+
+def test_load_source_edgar_offline_when_path_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """EDGAR source with path only (no ciks) → offline=True, replay from JSONL."""
+    from data import prepare
+    from data.types import Example
+
+    fake_examples: list[Example] = []
+    captured: dict = {}
+    cache = tmp_path / "edgar.jsonl"
+    cache.write_text("{}\n", encoding="utf-8")
+
+    def fake_loader(
+        *,
+        ciks: list[str] | None,
+        path: Path | None,
+        max_examples: int,
+        user_agent: str,
+        offline: bool,
+    ) -> list[Example]:
+        captured["offline"] = offline
+        captured["path"] = path
+        return fake_examples
+
+    monkeypatch.setattr(prepare, "load_edgar_finance", fake_loader)
+    cfg = SourceConfig(
+        name="edgar-offline",
+        type=SourceType.EDGAR,
+        path=cache,
+        max_examples=100,
+        domain="finance",
+    )
+    out = prepare._load_source(cfg)
+    assert out == fake_examples
+    assert captured["offline"] is True
+    assert captured["path"] == cache
+
+
+def test_source_config_edgar_does_not_require_id_or_path() -> None:
+    """EDGAR source may omit hf_dataset_id and path (uses DEFAULT_CIKS)."""
+    from data.config import SourceConfig, SourceType
+
+    cfg = SourceConfig(
+        name="edgar-default",
+        type=SourceType.EDGAR,
+        max_examples=10,
+        domain="finance",
+    )
+    assert cfg.ciks is None  # loader will use DEFAULT_CIKS
+
+
+def test_source_config_non_edgar_still_requires_id_or_path() -> None:
+    """Non-EDGAR sources must still specify hf_dataset_id or path."""
+    from data.config import SourceConfig, SourceType
+
+    with pytest.raises(ValueError, match="hf_dataset_id or path"):
+        SourceConfig(
+            name="sg-bad",
+            type=SourceType.SHAREGPT,
+            max_examples=10,
+        )
 
 
 # ---- CLI main() -----------------------------------------------------------

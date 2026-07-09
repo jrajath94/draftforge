@@ -2,7 +2,7 @@
 
 Loaded from `data/config.yaml` at startup. Validates:
   - split ratios sum to 1.0
-  - source type ∈ {sharegpt, openhermes, finance}
+  - source type ∈ {sharegpt, openhermes, finance, edgar}
   - dedup method ∈ {exact, minhash, exact+minhash}
 """
 
@@ -20,6 +20,7 @@ class SourceType(StrEnum):
     SHAREGPT = "sharegpt"
     OPENHERMES = "openhermes"
     FINANCE = "finance"
+    EDGAR = "edgar"
 
 
 class DedupMethod(StrEnum):
@@ -40,9 +41,17 @@ class SourceConfig(BaseModel):
     path: Path | None = None
     max_examples: int = Field(default=100_000, ge=1)
     domain: str = "general"
+    # EDGAR-specific: list of SEC CIKs (10-digit zero-padded). Ignored for non-EDGAR.
+    ciks: list[str] | None = None
+    # EDGAR-specific: User-Agent contact string. SEC fair-access policy requires one.
+    user_agent: str = "DraftForge/0.1 (research; contact@example.com)"
 
     @model_validator(mode="after")
     def _check_path_or_id(self) -> SourceConfig:
+        # EDGAR sources don't need hf_dataset_id or path (use DEFAULT_CIKS or
+        # override via the `ciks` field; pass `path` to read from a JSONL cache).
+        if self.type == SourceType.EDGAR:
+            return self
         if self.hf_dataset_id is None and self.path is None:
             raise ValueError(
                 f"source {self.name!r}: must specify hf_dataset_id or path"

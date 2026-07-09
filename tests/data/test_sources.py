@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from data.sources.finance import _load_from_jsonl, load_finance
 from data.sources.openhermes import _extract_messages as openhermes_extract
@@ -344,3 +345,209 @@ def test_results_path_check_allows_fixture_outside_results() -> None:
 
     # Reading the fixture file directly is fine — only writing it into results/ is blocked.
     _results_path_check(_FIXTURE_PATH)  # must not raise (no results/ in path.parts)
+
+
+# ---- EDGAR loader (data/sources/edgar.py) ----------------------------------
+
+
+def _fake_edgar_payload(entity_name: str = "Apple Inc.", cik: str = "0000320193") -> dict:
+    """Minimal XBRL company-facts payload — exercises the Q&A emission path."""
+    return {
+        "cik": cik,
+        "entityName": entity_name,
+        "facts": {
+            "us-gaap": {
+                "Revenues": {
+                    "units": {
+                        "USD": [
+                            {"form": "10-K", "fp": "FY", "end": "2023-09-30",
+                             "val": 383_285_000_000},
+                            {"form": "10-K", "fp": "FY", "end": "2022-09-24",
+                             "val": 394_328_000_000},
+                            {"form": "10-Q", "fp": "Q3", "end": "2024-06-29",
+                             "val": 100_000_000_000},  # non-10-K → skipped
+                        ]
+                    }
+                },
+                "NetIncomeLoss": {
+                    "units": {
+                        "USD": [
+                            {"form": "10-K", "fp": "FY", "end": "2023-09-30",
+                             "val": 96_995_000_000},
+                        ]
+                    }
+                },
+                "Assets": {"units": {}},  # empty units → no Q&A emitted
+            }
+        },
+    }
+
+
+def _mock_urlopen(payloads: list[dict]):
+    """Build a urlopen side_effect that returns the next payload on each call."""
+    queue = list(payloads)
+    cm = MagicMock()
+    cm.read.return_value = json.dumps(queue.pop(0)).encode("utf-8")
+    cm.__enter__ = lambda s: s
+    cm.__exit__ = lambda s, *a: False
+
+    def side_effect(*_args, **_kwargs):
+        if not queue:
+            raise StopIteration("no more payloads")
+        cm.read.return_value = json.dumps(queue.pop(0)).encode("utf-8")
+        return cm
+
+    return side_effect
+
+
+def test_load_edgar_offline_requires_path() -> None:
+    """offline=True without path → ValueError (no implicit network fallback)."""
+    from data.sources.edgar import load_edgar_finance
+
+    import pytest
+    with pytest.raises(ValueError, match="offline mode requires path"):
+        load_edgar_finance(offline=True)
+
+
+def test_load_edgar_jsonl_cache_replay(tmp_path: Path) -> None:
+    """offline path reads JSONL cache, tags domain=finance, source=edgar."""
+    from data.sources.edgar import load_edgar_finance
+
+    cache = tmp_path / "edgar_cache.jsonl"
+    rows = [
+        {
+            "id": "edgar-test-2023",
+            "domain": "finance",
+            "messages": [
+                {"role": "user", "content": "Q?"},
+                {"role": "assistant", "content": "A."},
+            ],
+            "source": "edgar",
+            "meta": {"cik": "0000320193"},
+        }
+    ]
+    with cache.open("w") as f:
+        for r in rows:
+            f.write(json.dumps(r) + "\n")
+
+    out = load_edgar_finance(path=cache, offline=True)
+    assert len(out) == 1
+    assert out[0].domain == "finance"
+    assert out[0].source == "edgar"
+    assert out[0].meta["cik"] == "0000320193"
+
+
+def test_load_edgar_finance_emits_qa_per_concept_year(tmp_path: Path) -> None:
+    """Live fetch (mocked) emits one Q&A per (concept, FY), skipping 10-Q."""
+    from data.sources import edgar
+
+    payloads = [_fake_edgar_payload("Apple Inc.", "0000320193")]
+    with patch.object(edgar, "_http_get_json", side_effect=payloads):
+        out = edgar.load_edgar_finance(
+            ciks=["0000320193"],
+            rate_limit_sec=0.0,  # speed up test
+        )
+    # 2 fiscal years of Revenues + 1 of NetIncomeLoss = 3 examples
+    # Assets has no units → 0 examples
+    assert len(out) == 3
+    assert all(e.domain == "finance" for e in out)
+    assert all(e.source == "edgar" for e in out)
+    # All Q&A are 2-message exchanges
+    assert all(len(e.messages) == 2 for e in out)
+    # Verify content sanity: numeric value rendered as billions
+    rev_2023 = next(e for e in out if "2023" in e.id and "revenues" in e.id)
+    assert "383.29 billion" in rev_2023.messages[1]["content"]
+    assert "10-K" in rev_2023.messages[1]["content"]
+
+
+def test_load_edgar_skips_cik_on_network_error() -> None:
+    """Network errors per CIK are non-fatal — loader continues to next."""
+    import urllib.error
+    from data.sources import edgar
+
+    def flaky(_url, _ua, **_kw):
+        if "0000789019" in _url:
+            raise urllib.error.URLError("simulated timeout")
+        return _fake_edgar_payload("Apple Inc.", "0000320193")
+
+    with patch.object(edgar, "_http_get_json", side_effect=flaky):
+        out = edgar.load_edgar_finance(
+            ciks=["0000789019", "0000320193"],
+            rate_limit_sec=0.0,
+        )
+    # Microsoft failed, Apple succeeded with 3 Q&A
+    assert len(out) == 3
+    assert all(e.meta["cik"] == "0000320193" for e in out)
+
+
+def test_load_edgar_respects_max_examples() -> None:
+    """max_examples caps the output size."""
+    from data.sources import edgar
+
+    with patch.object(edgar, "_http_get_json", return_value=_fake_edgar_payload()):
+        out = edgar.load_edgar_finance(
+            ciks=["0000320193"],
+            max_examples=1,
+            rate_limit_sec=0.0,
+        )
+    assert len(out) == 1
+
+
+def test_write_edgar_cache_roundtrip(tmp_path: Path) -> None:
+    """write_edgar_cache → load_edgar_finance(offline=True) round-trips losslessly."""
+    from data.sources import edgar
+    from data.types import Example
+
+    src = [
+        Example(
+            id="edgar-rt-2024",
+            domain="finance",
+            messages=[
+                {"role": "user", "content": "What was X?"},
+                {"role": "assistant", "content": "X was Y."},
+            ],
+            source="edgar",
+            meta={"cik": "0000320193", "concept": "Revenues"},
+        )
+    ]
+    cache = tmp_path / "rt.jsonl"
+    edgar.write_edgar_cache(src, cache)
+    out = edgar.load_edgar_finance(path=cache, offline=True)
+    assert len(out) == 1
+    assert out[0].id == "edgar-rt-2024"
+    assert out[0].meta["concept"] == "Revenues"
+
+
+def test_facts_to_qa_formats_usd_smartly() -> None:
+    """USD formatting: billions / millions / raw thresholds."""
+    from data.sources.edgar import _format_usd
+
+    assert _format_usd(383_285_000_000) == "$383.29 billion"
+    assert _format_usd(96_995_000_000) == "$97.00 billion"
+    assert _format_usd(2_500_000) == "$2.50 million"
+    assert _format_usd(123_456) == "$123,456"
+    assert _format_usd(-500_000_000) == "$-500.00 million"
+
+
+def test_facts_to_qa_skips_non_annual() -> None:
+    """Only form=10-K + fp=FY rows become Q&A; 10-Q rows ignored."""
+    from data.sources.edgar import _facts_to_qa
+
+    concept_data = {
+        "units": {
+            "USD": [
+                {"form": "10-K", "fp": "FY", "end": "2023-12-31", "val": 100_000_000_000},
+                {"form": "10-Q", "fp": "Q1", "end": "2024-03-31", "val": 25_000_000_000},
+                {"form": "10-Q", "fp": "Q2", "end": "2024-06-30", "val": 30_000_000_000},
+            ]
+        }
+    }
+    out = _facts_to_qa(
+        entity_name="Test Co",
+        cik="0000999999",
+        concept_data=concept_data,
+        concept_tag="Revenues",
+        concept_label="revenues",
+    )
+    assert len(out) == 1
+    assert "2023" in out[0].id
