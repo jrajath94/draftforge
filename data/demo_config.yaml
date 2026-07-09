@@ -1,0 +1,32 @@
+# DraftForge demo data config — local-only, no HF, no network.
+#
+# Runs entirely on the bundled sample finance fixture.
+# Used by `make demo` to verify pipeline shape end-to-end on any laptop.
+#
+# Quick start:
+#   python -m data.prepare --config data/demo_config.yaml --skip-tokenize
+
+seed: 7
+output_dir: ./artifacts/demo
+
+sources:
+  - name: finance-sample
+    type: finance
+    path: ./data/fixtures/sample_finance.jsonl
+    max_examples: 100
+    domain: finance
+
+dedup:
+  method: exact
+  minhash_threshold: 0.85
+  num_perm: 64
+
+split:
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  stratify_by: domain
+
+tokenizer:
+  name_or_path: placeholder
+  max_length: 128
