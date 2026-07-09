@@ -9,11 +9,11 @@
 #     -m train.train_eagle3 --config train/config.yaml --seed 42
 #
 # Pre-flight on rented GPU:
-#   huggingface-cli login                # Qwen3-14B is gated
 #   python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+# (Qwen3-4B-Instruct-2507 is open-weight; no HF token required.)
 
 model:
-  name_or_path: Qwen/Qwen3-14B
+  name_or_path: Qwen/Qwen3-4B-Instruct-2507
   torch_dtype: bfloat16
   attn_impl: sdpa
 
@@ -24,7 +24,9 @@ dataset:
   text_field: text
 
 eagle3:
-  layer_indices: [8, 20, 32]    # Qwen3-14B has 40 layers; 8=low, 20=mid, 32=high
+  layer_indices: [7, 18, 29]    # Qwen3-4B-Instruct-2507 has 36 layers;
+                                # 7=low (~19%), 18=mid (50%), 29=high (~81%).
+                                # Fractional depths match Qwen3-14B's [8,20,32].
   num_decoder_layers: 1
   head_dim: null                # auto from target
 
