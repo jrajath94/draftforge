@@ -31,21 +31,54 @@ Numbers stay `[NOT YET MEASURED]` until `bash scripts/onboard_pod.sh && bash scr
 ## Architecture
 
 ```
-Raw instruction traces (50-100K)
-  ↓
-Data Pipeline (dedupe, stratify, train/val/test split)
-  ↓
-Training (EAGLE-3 multi-layer fusion × 3 seeds)
-  ↓
-Ablation (tri-layer vs final-layer, ≥3 seeds each)
-  ↓
-Integration (vLLM + SGLang with spec-decode enabled)
-  ↓
-Profiling (Nsight Systems: draft-verify loop bottleneck analysis)
-  ↓
-Acceptance Analysis (domain, temperature, batch size effects)
-  ↓
-Trained head + curves + writeup
+┌──────────────────────────────────────────────────────────────────────────┐
+│ Raw instruction traces (ShareGPT, OpenHermes, finance JSONL)  50–100K    │
+└──────────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PHASE 1 — Data Pipeline                                                  │
+│   dedupe (exact + MinHash) → stratify split → tokenize                   │
+│   →  splits/{train,val,test}.jsonl  +  tokenized/{train,val,test}       │
+└──────────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PHASE 2 — Training (≥3 seeds, ~24h on H100)                             │
+│   target: Qwen3-14B (frozen, bf16)                                       │
+│   draft:  EAGLE3Head, layers [8, 20, 32] → projection → decoder → LM    │
+│   loss:   cross-entropy + training-time-test (horizon 4)                 │
+│   →  results/train/<variant>/<seed>/loss.csv                             │
+└──────────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PHASE 3 — Ablation (4 presets × ≥3 seeds)                               │
+│   tri_layer  [8,20,32]  •  final_layer [32]  •  low_only [8]  •  mid [20]│
+│   →  results/ablate/comparison.json (per-variant mean ± std)             │
+└──────────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PHASE 4 — Integration + Profile                                         │
+│   vLLM  --speculative-config eagle3   |  SGLang  --speculative-algorithm │
+│   Nsight Systems  →  classify binding regime (draft / balanced / verify) │
+│   →  results/profile/<run>.nsys-rep                                     │
+└──────────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PHASE 5 — Acceptance Analysis (CPU)                                      │
+│   grid:  domain × temperature × batch_size → (mean_acc, EAL, ITL)       │
+│   model: crossover_batch_size() locates spec-decode payoff threshold     │
+│   →  results/acceptance_grid.csv  +  results/crossover_analysis.md       │
+└──────────────────────────────────────────────────────────────────────────┘
+                                  ↓
+┌──────────────────────────────────────────────────────────────────────────┐
+│ PHASE 6 — Release                                                        │
+│   aggregate walks results/ → manifest.json (every measured number)       │
+│   make_card  renders HF_CARD.md from template + manifest                 │
+│   huggingface-cli upload <org>/qwen3-14b-eagle3-finance                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+Local CPU shape-verifier:  make demo
+  Same 6 stages, but stage 2/3/4 emit synthetic shape-true artifacts.
+  Output is is_demo=true at every level — never confused with measured numbers.
 ```
 
 ## Approach
@@ -64,6 +97,23 @@ pip install "draftforge[train]"  # PyTorch, DeepSpeed, accelerate
 ```
 
 ## Quick Start
+
+The fastest way to verify the pipeline on any laptop:
+
+```bash
+make demo   # CPU-only, no GPU, no HF, no network — ~30s
+```
+
+This runs all 6 phases end-to-end with shape-true synthetic data and emits
+`results/demo/` containing a fully wired manifest.json + HF_CARD.md. Every
+artifact is watermarked `is_demo: true` so it can never be confused with
+measured numbers. See [Local Demo (no GPU)](#local-demo-no-gpu) below.
+
+For real numbers (requires H100 + HF auth):
+
+```bash
+make bench  # full pipeline, ~24h, ~$70 on H100 spot
+```
 
 ### Data Preparation
 
@@ -98,6 +148,49 @@ python -m draftforge.serve.integrate_vllm \
 ```
 
 Serves the model with speculation enabled and measures inter-token latency reduction.
+
+## Local Demo (no GPU)
+
+`make demo` runs the full 6-phase pipeline on your laptop without any
+external dependencies. It's the fastest way for a reviewer to verify the
+project works end-to-end.
+
+```bash
+make demo                    # default: results/demo/
+make demo PYTHON=python3.12  # explicit interpreter
+python scripts/run_demo.py --results-root /tmp/df-demo  # direct invocation
+```
+
+**What runs:**
+
+| Stage | Module | Synthetic data |
+|-------|--------|----------------|
+| 1 | `data.prepare` (real CLI) | bundled `data/fixtures/sample_finance.jsonl` (30 rows) |
+| 2 | mock training (writes CSV) | 4 variants × 3 seeds, realistic loss curves |
+| 3 | `ablate.compare` (real library) | reads stage 2 curves, emits `comparison.json` |
+| 4 | mock acceptance + `eval.crossover_analysis` (real library) | 18-row acceptance grid |
+| 5 | `release.aggregate` (real CLI) | walks `results/demo/` → `manifest.json` |
+| 6 | `release.make_card` (real CLI) | renders `HF_CARD.md` from manifest |
+
+**Output:**
+
+```
+results/demo/
+├── IS_DEMO.md                       # watermark: synthetic, not measured
+├── train/<seed>/loss.csv            # 3 seeds, schema: step,loss,lr
+├── ablate_data/<variant>/<seed>/loss_curve.csv   # 4 variants × 3 seeds
+├── ablate/comparison.json           # per-variant mean ± std
+├── eval/acceptance_grid.csv         # 18 rows (2 domains × 3 temps × 3 batches)
+├── eval/crossover_analysis.md       # batch-size crossover report
+├── manifest.json                    # is_demo=true, "SYNTHETIC" warning
+└── HF_CARD.md                       # rendered HF model card
+```
+
+The demo deliberately exercises the same code paths as the real pipeline
+(`ablate.compare.compare_variants`, `release.aggregate.aggregate`,
+`release.make_card.render_card`, `eval.crossover_analysis.analyze_crossover`)
+so a passing demo proves the modules accept and process data correctly.
+Real measurements come from `make bench` on an H100 pod.
 
 ## Benchmarking
 

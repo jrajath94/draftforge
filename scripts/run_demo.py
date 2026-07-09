@@ -7,8 +7,8 @@ confused with measured results.
 
 Pipeline stages (mirrors `scripts/run_full_pipeline.sh` but with synthetic data):
   1. data.prepare  --config data/demo_config.yaml --skip-tokenize
-  2. mock training: 4 variants × 3 seeds → loss.csv per (variant, seed)
-  3. ablate.compare: combine variant summaries → comparison.json
+  2. mock training: 4 variants x 3 seeds -> loss.csv per (variant, seed)
+  3. ablate.compare: combine variant summaries -> comparison.json
   4. mock acceptance: synthetic acceptance_grid.csv
   5. eval.crossover_analysis: derive batch-size crossover (mock)
   6. release.aggregate: walk results/demo/ → manifest.json (is_demo: true)
@@ -125,8 +125,8 @@ def step_mock_training(results_root: Path) -> None:
       - results/demo/train/<seed>/loss.csv            (aggregator expects this — flat)
       - results/demo/ablate/<variant>/<seed>/loss_curve.csv  (ablate.compare expects this)
     """
-    log("stage 2: mock training — 4 variants × 3 seeds + flat train/ for aggregator")
-    # Flat train/ — only the recommended variant goes here (aggregator assumes one)
+    log("stage 2: mock training - 4 variants x 3 seeds + flat train/ for aggregator")
+    # Flat train/ - only the recommended variant goes here (aggregator assumes one)
     train_root = results_root / "train"
     for seed in SEEDS:
         seed_dir = train_root / str(seed)
@@ -178,7 +178,7 @@ def synth_acceptance_grid(domains: tuple[str, ...], temps: tuple[float, ...], ba
     rng = random.Random(20260708)
     rows: list[dict] = []
     for domain in domains:
-        # Tri-layer head (our best) vs non-spec baseline: eal ratio ~ 1.6–2.4x
+        # Tri-layer head (our best) vs non-spec baseline: eal ratio ~ 1.6-2.4x
         base_p = {"general": 0.62, "finance": 0.71}[domain]
         for temp in temps:
             # Higher temperature slightly reduces acceptance
@@ -297,7 +297,7 @@ def main() -> int:
 
     log("DONE. Outputs:")
     log(f"  {results_root}/train/<seed>/loss.csv  (3 seeds, flat)")
-    log(f"  {results_root}/ablate_data/<variant>/<seed>/loss_curve.csv  (4 variants × 3 seeds)")
+    log(f"  {results_root}/ablate_data/<variant>/<seed>/loss_curve.csv  (4 variants x 3 seeds)")
     log(f"  {results_root}/ablate/comparison.json")
     log(f"  {results_root}/eval/acceptance_grid.csv")
     log(f"  {results_root}/eval/crossover_analysis.md")
