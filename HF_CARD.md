@@ -1,6 +1,6 @@
 ---
 license: mit
-base_model: Qwen/Qwen3-4B
+base_model: Qwen/Qwen3-4B-Instruct-2507
 tags:
   - eagle-3
   - speculative-decoding
@@ -11,18 +11,18 @@ tags:
 
 # draftforge-eagle3-head
 
-EAGLE-3 speculative decoding draft head trained on Qwen/Qwen3-4B with finance-domain emphasis.
+EAGLE-3 speculative decoding draft head trained on Qwen/Qwen3-4B-Instruct-2507 with finance-domain emphasis.
 
 ## Intended Use
 
-Drop-in draft head for `vllm serve Qwen/Qwen3-4B --speculative-config '{"method":"eagle3",...}'` and SGLang's `--speculative-algorithm EAGLE3 --speculative-draft-model-path <this-repo>`.
+Drop-in draft head for `vllm serve Qwen/Qwen3-4B-Instruct-2507 --speculative-config '{"method":"eagle3",...}'` and SGLang's `--speculative-algorithm EAGLE3 --speculative-draft-model-path <this-repo>`.
 
 ## Training
 
 - Recipe: EAGLE-3 (NeurIPS'25, Li et al.)
-- Tri-layer fusion: hidden states from layers [8, 20, 32] of Qwen/Qwen3-4B (low/mid/high)
+- Tri-layer fusion: hidden states from layers [7, 18, 29] of Qwen/Qwen3-4B-Instruct-2507 (low/mid/high; rescaled from Qwen3-14B's [8, 20, 32] for 36 vs 40 layers)
 - Direct token prediction (not feature-level)
-- Training-time-test with horizon 4
+- Training-time-test with horizon 5
 - DeepSpeed ZeRO-2, bf16, activation checkpointing
 - Seeds: 42, 0, 1234 (≥3 independent runs)
 
@@ -40,7 +40,7 @@ One-command reproduction. See `results/` for committed per-seed loss curves and 
 
 ## Limitations
 
-- Draft head is calibrated to Qwen/Qwen3-4B's hidden-state geometry; do not load against a different base model.
+- Draft head is calibrated to Qwen/Qwen3-4B-Instruct-2507's hidden-state geometry; do not load against a different base model.
 - Acceptance rates degrade on out-of-distribution prompts (see domain-shift analysis in writeup).
 - Trained on a single hardware class (H100 bf16). Numerical behavior on other accelerators may differ.
 
