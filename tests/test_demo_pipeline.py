@@ -50,7 +50,7 @@ def test_demo_pipeline_runs(tmp_path: Path, clean_demo_artifacts: None) -> None:
     assert (DEMO_ARTIFACTS / "splits" / "train.jsonl").exists(), "data.prepare did not emit splits"
     assert (DEMO_ARTIFACTS / "results" / "data" / "pipeline_summary.json").exists()
 
-    # Stage 2 — mock training: 3 flat seeds under train/, 4×3 under ablate_data/
+    # Stage 2 - mock training: 3 flat seeds under train/, 4x3 under ablate_data/
     seeds = [d.name for d in (demo / "train").iterdir() if d.is_dir()]
     assert sorted(seeds) == ["0", "1234", "42"], seeds
     for seed in seeds:
@@ -64,7 +64,7 @@ def test_demo_pipeline_runs(tmp_path: Path, clean_demo_artifacts: None) -> None:
     # Stage 3 — ablation comparison
     comparison = json.loads((demo / "ablate" / "comparison.json").read_text(encoding="utf-8"))
     assert set(comparison.keys()) == {"tri_layer", "final_layer", "low_only", "mid_only"}
-    for variant, stats in comparison.items():
+    for _variant, stats in comparison.items():
         assert stats["is_demo"] is True
         assert stats["n_seeds"] == 3
         assert len(stats["per_seed"]) == 3
@@ -81,7 +81,7 @@ def test_demo_pipeline_runs(tmp_path: Path, clean_demo_artifacts: None) -> None:
     assert manifest["is_demo"] is True
     assert "SYNTHETIC demo output" in manifest["warning"]
     assert manifest["ablation"]["comparison"]  # non-empty
-    assert len(manifest["eval"]["grid"]) == 18  # 2 domains × 3 temps × 3 batches
+    assert len(manifest["eval"]["grid"]) == 18  # 2 domains x 3 temps x 3 batches
 
     card_path = demo / "HF_CARD.md"
     assert card_path.exists()
