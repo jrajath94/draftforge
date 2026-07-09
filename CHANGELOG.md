@@ -36,7 +36,7 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 CLI is wired, every orchestrator has a `__main__` block, the HF release artifacts
 are placeholders that survive `make card`, and the writeup is filled (with
 `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers).
-167 tests pass; aggregate coverage ≥ 82.9% on the core modules; `make audit`
+166 tests pass; aggregate coverage ≥ 82.9% on the core modules; `make audit`
 is the CI gate.
 
 ### Added
@@ -104,7 +104,7 @@ is the CI gate.
 
 ### Notes
 - Aggregate coverage: ≥ 82.9% on core modules (train, data, ablate, eval,
-  release). 167 tests pass (`make audit`).
+  release). 166 tests pass (`make audit`).
 - 17 new CLI tests added in the integration-shim round (in-process + 1
   smoke subprocess per module).
 - v1.0 = every file the README points to exists. GPU-bound numbers stay
