@@ -8,8 +8,10 @@ Pure file I/O. No GPU, no model loading.
 
 from __future__ import annotations
 
+import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -48,12 +50,19 @@ def aggregate(results_root: Path) -> dict[str, Any]:
     """Walk results_root, collect loss curves + ablations + accept grid."""
     out: dict[str, Any] = {"root": str(results_root)}
 
-    # Training: per-seed loss curves
+    # Training: per-seed loss curves.
+    #
+    # Canonical schema is `loss_curve.csv` (written by train/train_eagle3.py
+    # via `write_loss_curve` and read by `ablate.compare`). A legacy
+    # `loss.csv` from an earlier prototype is accepted as a fallback so
+    # already-committed demo manifests stay readable.
     train_root = results_root / "train"
     if train_root.exists():
         seeds: dict[str, list[dict[str, float]]] = {}
         for seed_dir in sorted(p for p in train_root.iterdir() if p.is_dir()):
-            csv_path = seed_dir / "loss.csv"
+            csv_path = seed_dir / "loss_curve.csv"
+            if not csv_path.exists():
+                csv_path = seed_dir / "loss.csv"
             seeds[seed_dir.name] = _read_csv_loss(csv_path)
         out["training"] = {"seeds": seeds}
 
@@ -91,3 +100,23 @@ def main(results_root: Path, out_path: Path) -> int:
     write_manifest(manifest, out_path)
     print(f"wrote {out_path}")
     return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Aggregate train/ablate/serve/eval outputs into manifest.json."
+    )
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        required=True,
+        help="results/ directory to walk",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="output manifest.json path",
+    )
+    args = parser.parse_args()
+    sys.exit(main(args.results_root, args.out))

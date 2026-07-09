@@ -9,7 +9,9 @@ each seed's loss_curve.csv — no interpolation, no fabrication.
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 
 from ablate.configs import PRESETS
@@ -120,3 +122,49 @@ def write_comparison(by_variant: dict[str, dict], out_path: Path) -> None:
 
 def default_results_root() -> Path:
     return Path("results/train")
+
+
+# ---- CLI -----------------------------------------------------------------
+
+
+def main(results_root: Path, out: Path) -> int:
+    """Walk variant/seed/loss_curve.csv under `results_root`, write comparison.
+
+    Always writes `out` (presets keyed with n_seeds=0 if missing) so the
+    downstream release.aggregate step never crashes on a missing file.
+    """
+    by_variant = compare_variants(results_root)
+    n_seeds_total = sum(v.get("n_seeds", 0) for v in by_variant.values())
+    write_comparison(by_variant, out)
+    if n_seeds_total == 0:
+        print(
+            f"[ablate.compare] no loss_curve.csv under {results_root}; "
+            f"wrote empty comparison to {out}",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"[ablate.compare] aggregated {n_seeds_total} seeds across "
+            f"{len(by_variant)} variants -> {out}"
+        )
+    return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Compare per-seed loss curves across ablation variants."
+    )
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        required=True,
+        help="directory containing <variant>/<seed>/loss_curve.csv subdirs",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="comparison JSON output path (a .csv sidecar is also written)",
+    )
+    args = parser.parse_args()
+    sys.exit(main(args.results_root, args.out))

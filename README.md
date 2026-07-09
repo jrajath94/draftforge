@@ -279,7 +279,12 @@ Outputs the acceptance grid CSV + markdown report locating the batch-size crosso
 
 ```bash
 .venv/bin/python -m release.aggregate --results-root results --out results/manifest.json
-.venv/bin/python -m release.make_card --manifest results/manifest.json --out HF_CARD.md
+.venv/bin/python -m release.make_card \
+  --template release/hf_card.md \
+  --results results \
+  --head draftforge-eagle3-head \
+  --target Qwen/Qwen3-4B \
+  --out HF_CARD.md
 # manual upload
 huggingface-cli upload <your-org>/qwen3-14b-eagle3-finance \
   results/train/tri_layer/42/best HF_CARD.md

@@ -66,7 +66,10 @@ python -m release.aggregate \
 
 log "stage 5b: rendering HF model card"
 python -m release.make_card \
-  --manifest "${RESULTS}/manifest.json" \
+  --template "${ROOT}/release/hf_card.md" \
+  --results "${RESULTS}" \
+  --head "draftforge-eagle3-head" \
+  --target "Qwen/Qwen3-4B" \
   --out "${ROOT}/HF_CARD.md"
 
 cat <<EOF

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 from ablate.compare import (
@@ -138,3 +141,82 @@ def test_default_results_root() -> None:
     from ablate.compare import default_results_root
 
     assert default_results_root() == Path("results/train")
+
+
+# ---- CLI entrypoint -------------------------------------------------------
+#
+# `python -m ablate.compare --results-root X --out Y` — exact invocation in
+# scripts/run_full_pipeline.sh. main() is tested in-process for coverage;
+# `__main__` argparse wiring is covered by ONE subprocess smoke test.
+
+
+def _seed_loss_curve(variant_root: Path, seed: str, n_rows: int = 50) -> None:
+    seed_dir = variant_root / seed
+    seed_dir.mkdir(parents=True, exist_ok=True)
+    csv_p = seed_dir / "loss_curve.csv"
+    csv_p.write_text(
+        "step,loss,lr\n"
+        + "\n".join(f"{i},{1.0 + i * 0.001},1e-4" for i in range(n_rows)),
+        encoding="utf-8",
+    )
+
+
+def test_cli_writes_json_and_csv(tmp_path: Path) -> None:
+    """main(): Seeded variant/seed tree -> comparison.json + comparison.csv."""
+    from ablate.compare import main as cli_main
+
+    for variant in ("tri_layer", "final_layer"):
+        for seed in ("42", "0"):
+            _seed_loss_curve(tmp_path / variant, seed)
+
+    out = tmp_path / "comparison.json"
+    rc = cli_main(tmp_path, out)
+    assert rc == 0
+    assert out.exists()
+    payload = json.loads(out.read_text())
+    assert "tri_layer" in payload
+    assert "final_layer" in payload
+    assert payload["tri_layer"]["n_seeds"] == 2
+    assert (tmp_path / "comparison.csv").exists()
+
+
+def test_cli_empty_root_writes_empty_comparison(tmp_path: Path) -> None:
+    """main(): No variant subdirs -> empty comparison.json; exit 0."""
+    from ablate.compare import main as cli_main
+
+    out = tmp_path / "comparison.json"
+    rc = cli_main(tmp_path, out)
+    assert rc == 0
+    assert out.exists()
+    payload = json.loads(out.read_text())
+    for _variant, stats in payload.items():
+        assert stats["n_seeds"] == 0
+
+
+def test_cli_argparse_binding_smoke(tmp_path: Path) -> None:
+    """Subprocess: `python -m ablate.compare ...` argparse path works."""
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ablate.compare",
+            "--results-root", str(tmp_path),
+            "--out", str(tmp_path / "c.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (tmp_path / "c.json").exists()
+
+
+def test_cli_missing_results_root_exits_nonzero(tmp_path: Path) -> None:
+    """Subprocess: Missing --results-root -> argparse exits 2."""
+    proc = subprocess.run(
+        [sys.executable, "-m", "ablate.compare", "--out", str(tmp_path / "c.json")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode != 0

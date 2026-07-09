@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import argparse
+import sys
 from pathlib import Path
 from string import Template
 
@@ -30,3 +32,20 @@ def main(template: Path, results: Path, head: str, target: str, out: Path) -> in
     render_card(template, results, head, target, out)
     print(f"wrote {out}")
     return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Render the HuggingFace model card from a template + manifest."
+    )
+    parser.add_argument("--template", type=Path, required=True)
+    parser.add_argument("--results", type=Path, required=True)
+    parser.add_argument("--head", required=True)
+    parser.add_argument("--target", required=True)
+    parser.add_argument("--out", type=Path, required=True)
+    args = parser.parse_args()
+    sys.exit(
+        main(
+            args.template, args.results, args.head, args.target, args.out
+        )
+    )
