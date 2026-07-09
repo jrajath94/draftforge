@@ -3,31 +3,33 @@
 # Per parent CLAUDE.md README Standard: "Benchmarks: exact commands to reproduce every number"
 #
 # Standard targets (CPU-safe unless noted):
-#   make setup     — venv + install
-#   make lint      — ruff
-#   make types     — mypy
-#   make test      — pytest
-#   make coverage  — pytest + coverage report
-#   make audit     — lint + types + test (CI gate, run before every commit)
-#   make verify    — bash scripts/verify.sh (walks every CLI)
-#   make demo      — local CPU pipeline (scripts/run_demo.py)
-#   make figures   — regenerate plots (called by demo)
-#   make card      — render HF_CARD.md (release.make_card)
-#   make writeup   — validate WRITEUP.md is current (no-op if file present)
-#   make all       — setup + audit + demo + card + verify  (no-GPU full artifact set)
-#   make onboard   — run scripts/onboard_pod.sh (pod setup)
-#   make bench     — full pipeline (scripts/run_full_pipeline.sh) — needs GPU
-#   make clean     — remove pyc + caches
+#   make setup       — venv + install
+#   make lint        — ruff
+#   make types       — mypy
+#   make test        — pytest
+#   make coverage    — pytest + coverage report
+#   make audit       — lint + types + test (CI gate, run before every commit)
+#   make verify      — bash scripts/verify.sh (walks every CLI)
+#   make demo        — local CPU pipeline (scripts/run_demo.py)
+#   make figures     — regenerate plots (called by demo)
+#   make card        — render HF_CARD.md (release.make_card)
+#   make writeup     — validate WRITEUP.md is current (no-op if file present)
+#   make all         — setup + audit + demo + card + verify  (no-GPU full artifact set)
+#   make onboard     — run scripts/onboard_pod.sh (pod setup)
+#   make bench       — full pipeline (scripts/run_full_pipeline.sh) — needs GPU
+#   make h100        — RunPod operator (recommend / spec / push / run / status / stop)
+#   make clean       — remove pyc + caches
 #
 # Env knobs:
-#   PYTHON    python interpreter (default: .venv/bin/python)
-#   N_SEEDS   seeds for training (default: 3)
-#   SKIP_*    skip pipeline stage (default: 0). See scripts/run_full_pipeline.sh
+#   PYTHON     python interpreter (default: .venv/bin/python)
+#   N_SEEDS    seeds for training (default: 3)
+#   SKIP_*     skip pipeline stage (default: 0). See scripts/run_full_pipeline.sh
+#   GPU_ID     RunPod GPU type id (for `make h100-spec`)
 
 PYTHON ?= .venv/bin/python
 N_SEEDS ?= 3
 
-.PHONY: setup test lint types coverage audit verify demo figures card writeup all onboard bench clean help
+.PHONY: setup test lint types coverage audit verify demo figures card writeup all onboard bench clean help h100 h100-recommend h100-spec h100-push h100-run h100-status h100-stop h100-oneliner
 
 help:
 	@echo "DraftForge Makefile"
@@ -45,6 +47,7 @@ help:
 	@echo "  make all       setup + audit + demo + card + verify (no-GPU)"
 	@echo "  make onboard   pod onboarding (scripts/onboard_pod.sh)"
 	@echo "  make bench     full pipeline (scripts/run_full_pipeline.sh) — needs GPU"
+	@echo "  make h100-*    RunPod operator (recommend/spec/push/run/status/stop)"
 	@echo "  make clean     remove caches"
 
 setup:
@@ -122,3 +125,59 @@ clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov coverage.xml .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	rm -rf examples/_out
+
+# ── RunPod one-command GPU operator (scripts/operator_runpod.py) ──────────────
+# Lets the user go from "no GPU" → "trained head" with: spec → runpod UI → push → run.
+# Does NOT auto-create a pod (cost gate); user pastes `make h100-spec` output into
+# RunPod UI to deploy, then runs `make h100-push POD_ID=...` etc.
+
+GPU_ID ?= NVIDIA H100 80GB HBM3
+SSH_HOST ?= pod-XYZ.runpod.io
+SSH_PORT ?= 22
+SSH_KEY ?= ~/.ssh/id_rsa
+POD_ID ?= my-pod-id
+
+h100:
+	@echo "RunPod one-command operator for DraftForge."
+	@echo ""
+	@echo "Quick start:"
+	@echo "  make h100-recommend           # live RunPod GPU table"
+	@echo "  make h100-spec                # pod-create JSON (paste into RunPod UI)"
+	@echo "  ... user pastes JSON into RunPod UI, deploys, notes host+port"
+	@echo "  make h100-push SSH_HOST=...   # SCP repo + onboard_pod.sh"
+	@echo "  make h100-run SSH_HOST=...    # full pipeline (24h ceiling)"
+	@echo "  make h100-status SSH_HOST=... # nvidia-smi + tail pipeline.log"
+	@echo "  make h100-stop SSH_HOST=...   # shutdown -h now"
+	@echo ""
+	@echo "End-to-end: make h100-oneliner"
+	@echo "Sub-tool:   python scripts/operator_runpod.py --help"
+
+h100-recommend:
+	$(PYTHON) scripts/operator_runpod.py recommend
+
+h100-spec:
+	$(PYTHON) scripts/operator_runpod.py spec --gpu "$(GPU_ID)"
+
+h100-push:
+	@test -n "$(SSH_HOST)" || (echo "ERROR: set SSH_HOST=<pod>.runpod.io"; exit 1)
+	$(PYTHON) scripts/operator_runpod.py push "$(POD_ID)" \
+		--ssh-host "$(SSH_HOST)" --ssh-port $(SSH_PORT) --ssh-key "$(SSH_KEY)"
+
+h100-run:
+	@test -n "$(SSH_HOST)" || (echo "ERROR: set SSH_HOST=<pod>.runpod.io"; exit 1)
+	$(PYTHON) scripts/operator_runpod.py run "$(POD_ID)" \
+		--ssh-host "$(SSH_HOST)" --ssh-port $(SSH_PORT) --ssh-key "$(SSH_KEY)" \
+		--n-seeds $(N_SEEDS)
+
+h100-status:
+	@test -n "$(SSH_HOST)" || (echo "ERROR: set SSH_HOST=<pod>.runpod.io"; exit 1)
+	$(PYTHON) scripts/operator_runpod.py status "$(POD_ID)" \
+		--ssh-host "$(SSH_HOST)" --ssh-port $(SSH_PORT) --ssh-key "$(SSH_KEY)"
+
+h100-stop:
+	@test -n "$(SSH_HOST)" || (echo "ERROR: set SSH_HOST=<pod>.runpod.io"; exit 1)
+	$(PYTHON) scripts/operator_runpod.py stop "$(POD_ID)" \
+		--ssh-host "$(SSH_HOST)" --ssh-port $(SSH_PORT) --ssh-key "$(SSH_KEY)"
+
+h100-oneliner:
+	$(PYTHON) scripts/operator_runpod.py one-liner

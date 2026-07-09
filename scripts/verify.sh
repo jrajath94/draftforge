@@ -102,6 +102,13 @@ check "release (typer aggregate subcommand)" \
 check "release (typer make-card subcommand)" \
   "${PYTHON} -m release make-card --help"
 
+# ── RunPod operator (argparse, scripts/operator_runpod.py) ─────────────────
+check "operator_runpod (RunPod GPU operator)" \
+  "${PYTHON} scripts/operator_runpod.py --help"
+
+check "operator_runpod one-liner" \
+  "${PYTHON} scripts/operator_runpod.py one-liner"
+
 # ── Summary ────────────────────────────────────────────────────────────────
 echo
 echo "[verify] ============================================"
