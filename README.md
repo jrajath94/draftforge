@@ -8,7 +8,7 @@
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
 
-**Status (v1.0):** Codebase complete. All 6 phases shipped, 167 tests pass, 82.9% aggregate coverage, `make audit` clean. Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime to fill the timing tables.
+**Status (v1.0):** Codebase complete. All 6 phases shipped, 166 tests pass, 82.9% aggregate coverage, `make audit` clean. Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime to fill the timing tables.
 
 ## Overview
 
