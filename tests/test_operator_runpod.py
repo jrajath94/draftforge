@@ -98,6 +98,31 @@ def test_cmd_recommend_handles_api_error(capsys) -> None:
     assert "RunPod API unreachable" in captured.err
 
 
+def test_runpod_request_sends_user_agent() -> None:
+    """Regression: Cloudflare 403s requests with no User-Agent.
+
+    The operator MUST send an explicit User-Agent header on every RunPod
+    GraphQL call, otherwise Cloudflare blocks the request as a bot.
+    """
+    captured_headers: dict[str, str] = {}
+
+    def _fake_urlopen(req, timeout):  # type: ignore[no-untyped-def]
+        for k, v in req.headers.items():
+            captured_headers[k] = v
+        return MagicMock(
+            __enter__=lambda s: s,
+            __exit__=lambda s, *a: False,
+            read=lambda: b'{"data": {"gpuTypes": []}}',
+        )
+
+    with patch.object(op.urllib.request, "urlopen", side_effect=_fake_urlopen):
+        op._runpod_gpu_types()
+    assert captured_headers.get("User-agent") == op.RUNPOD_USER_AGENT or \
+           captured_headers.get("User-Agent") == op.RUNPOD_USER_AGENT
+    assert "DraftForge" in captured_headers.get("User-agent", "") + \
+           captured_headers.get("User-Agent", "")
+
+
 # ── spec: JSON shape ─────────────────────────────────────────────────────────
 
 
