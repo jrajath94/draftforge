@@ -24,6 +24,7 @@ import typer
 from data.config import DataConfig, SourceConfig, SourceType, load_config
 from data.dedup import deduplicate, write_counts_log
 from data.plot import plot_domain_distribution
+from data.sources.edgar import load_edgar_finance
 from data.sources.finance import load_finance
 from data.sources.openhermes import load_openhermes
 from data.sources.sharegpt import load_sharegpt
@@ -69,6 +70,14 @@ def _load_source(src_cfg: SourceConfig) -> list[Example]:
             hf_dataset_id=src_cfg.hf_dataset_id,
             path=src_cfg.path,
             max_examples=src_cfg.max_examples,
+        )
+    if src_cfg.type == SourceType.EDGAR:
+        return load_edgar_finance(
+            ciks=src_cfg.ciks,
+            path=src_cfg.path,
+            max_examples=src_cfg.max_examples,
+            user_agent=src_cfg.user_agent,
+            offline=src_cfg.path is not None and src_cfg.hf_dataset_id is None,
         )
     raise ValueError(f"unknown source type: {src_cfg.type}")
 
