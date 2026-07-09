@@ -16,11 +16,11 @@ DraftForge trains EAGLE-3 speculative decoding draft heads for target models, in
 
 ## Headline
 
-A trained EAGLE-3 head that reduces inter-token latency on Qwen3-14B + finance domain, with every figure traceable to `make bench`.
+A trained EAGLE-3 head that reduces inter-token latency on `Qwen/Qwen3-4B-Instruct-2507` + finance domain, with every figure traceable to `make bench`.
 
 **Result table — `[NOT YET MEASURED]` until training runs.**
 
-| Metric | Naked Qwen3-14B | + EAGLE-3 head (this work) | Source |
+| Metric | Naked Qwen3-4B-Instruct-2507 | + EAGLE-3 head (this work) | Source |
 |--------|-----------------|----------------------------|--------|
 | Acceptance length (geometric mean) | n/a | `[NOT YET MEASURED]` | `results/acceptance_grid.csv` |
 | ITL reduction @ batch 1 | baseline | `[NOT YET MEASURED]` | Nsight trace `results/profile/*.nsys-rep` |
@@ -29,7 +29,7 @@ A trained EAGLE-3 head that reduces inter-token latency on Qwen3-14B + finance d
 | Domain shift (general vs finance) | n/a | `[NOT YET MEASURED]` | split by `domain` column |
 | Temperature sensitivity (0.0 / 0.7 / 1.0) | n/a | `[NOT YET MEASURED]` | sweep CSV |
 
-Numbers stay `[NOT YET MEASURED]` until `bash scripts/onboard_pod.sh && bash scripts/run_full_pipeline.sh` completes on rented GPU. Per project integrity baseline: no fabricated numbers.
+Numbers stay `[NOT YET MEASURED]` until `make h100-oneliner` completes on rented GPU (~3–4 h wallclock / ~$10–15 spot for one full tri-layer seed, ~$30–45 for all 3 seeds). Per project integrity baseline: no fabricated numbers.
 
 ## Architecture
 
@@ -46,15 +46,15 @@ Numbers stay `[NOT YET MEASURED]` until `bash scripts/onboard_pod.sh && bash scr
                                   ↓
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ PHASE 2 — Training (≥3 seeds, ~24h on H100)                             │
-│   target: Qwen3-14B (frozen, bf16)                                       │
-│   draft:  EAGLE3Head, layers [8, 20, 32] → projection → decoder → LM    │
-│   loss:   cross-entropy + training-time-test (horizon 4)                 │
+│   target: Qwen/Qwen3-4B-Instruct-2507 (frozen, bf16, open-weight)        │
+│   draft:  EAGLE3Head, layers [7, 18, 29] → projection → decoder → LM     │
+│   loss:   cross-entropy + training-time-test (horizon 5)                 │
 │   →  results/train/<variant>/<seed>/loss.csv                             │
 └──────────────────────────────────────────────────────────────────────────┘
                                   ↓
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ PHASE 3 — Ablation (4 presets × ≥3 seeds)                               │
-│   tri_layer  [8,20,32]  •  final_layer [32]  •  low_only [8]  •  mid [20]│
+│   tri_layer  [7,18,29]  •  final_layer [35]  •  low_only [7]  •  mid [18]│
 │   →  results/ablate/comparison.json (per-variant mean ± std)             │
 └──────────────────────────────────────────────────────────────────────────┘
                                   ↓
@@ -76,7 +76,7 @@ Numbers stay `[NOT YET MEASURED]` until `bash scripts/onboard_pod.sh && bash scr
 │ PHASE 6 — Release                                                        │
 │   aggregate walks results/ → manifest.json (every measured number)       │
 │   make_card  renders HF_CARD.md from template + manifest                 │
-│   huggingface-cli upload <org>/qwen3-14b-eagle3-finance                   │
+│   huggingface-cli upload <org>/qwen3-4b-eagle3-finance                   │
 └──────────────────────────────────────────────────────────────────────────┘
 
 Local CPU shape-verifier:  make demo
@@ -148,7 +148,7 @@ draftforge-prepare \
 
 ```bash
 draftforge-train \
-  --model qwen3-14b \
+  --model qwen3-4b-instruct-2507 \
   --data data/prepared/train.parquet \
   --config configs/eagle3_default.yaml \
   --output checkpoints/
@@ -160,7 +160,7 @@ Trains with DeepSpeed ZeRO-2 offloading on a single GPU. Checkpoints every 500 s
 
 ```bash
 python -m draftforge.serve.integrate_vllm \
-  --base-model qwen3-14b \
+  --base-model qwen3-4b-instruct-2507 \
   --draft-head ./checkpoints/best_eagle3 \
   --measure-itl \
   --output results/
@@ -228,10 +228,11 @@ Outputs CSV + matplotlib figures showing batch-size crossover point and domain-s
 
 ### Prerequisites
 
-- Python 3.12 (project uses 3.12 features)
-- 1× GPU (H100 or A100, 40GB+ VRAM; RunPod recommended)
-- HuggingFace account with gated access to [Qwen/Qwen3-14B](https://huggingface.co/Qwen/Qwen3-14B)
-- ~$200–250 GPU rental budget (full pipeline: data + 3-seed training + ablation + bench)
+- Python 3.11+ (3.12 also tested)
+- 1× GPU (H100 recommended; A100 80GB works; 24 GB VRAM suffices for Qwen3-4B bf16 + head)
+- `Qwen/Qwen3-4B-Instruct-2507` is **open-weight** — no HuggingFace token required to download
+- ~$50–80 GPU rental budget (full pipeline: data + 3-seed training + ablation + bench)
+  - Per seed (2000 steps × ~6s/step, H100 spot ≈ $2/hr): ~3–4 h, ~$10–15
 
 ### Quick Smoke Test (CPU, ~5 min, $0)
 
@@ -254,13 +255,13 @@ Expected artifacts:
 #### 1. Data Pipeline (1 h, ~$6)
 
 ```bash
-huggingface-cli login  # token with Qwen3-14B access
+hf auth login  # OPTIONAL — Qwen3-4B is open-weight. Required only if you add a gated HF mirror.
 .venv/bin/python -m data.prepare --config data/config.yaml
 ```
 
 Outputs tokenized splits + reproducibility SHA256 log under `artifacts/data/`.
 
-#### 2. Training: 3 seeds (20–24 h total, ~$60–90)
+#### 2. Training: 3 seeds (10–12 h total, ~$30–45)
 
 ```bash
 bash train/run_all_seeds.sh 3        # trains seeds 42, 123, 456
@@ -306,7 +307,7 @@ Outputs the acceptance grid CSV + markdown report locating the batch-size crosso
   --out HF_CARD.md
 # Wrapper with integrity guard (refuses placeholder < 1 MiB safetensors)
 bash scripts/upload_hf.sh \
-  --repo-id <your-org>/qwen3-14b-eagle3-finance \
+  --repo-id <your-org>/qwen3-4b-eagle3-finance \
   --checkpoint-dir results/train/tri_layer/42/best \
   --card-path HF_CARD.md
 ```
@@ -316,11 +317,11 @@ bash scripts/upload_hf.sh \
 | Stage | Hardware | Duration | Cost (RunPod US East) |
 |-------|----------|----------|------------------------|
 | Data pipeline | 1× H100 | 1 h | ~$6 |
-| Training × 3 seeds | 1× H100 | 24 h | ~$144 |
-| Ablation (optional) | 1× H100 | 4 h | ~$24 |
-| Serve + bench | 1× H100 | 4 h | ~$24 |
+| Training × 3 seeds | 1× H100 | 10–12 h | ~$30–45 |
+| Ablation (optional) | 1× H100 | 4 h | ~$12 |
+| Serve + bench | 1× H100 | 2 h | ~$6 |
 | Acceptance analysis | CPU | <1 h | $0 |
-| **Total** | | **~33 h** | **~$200** (+ ablation = ~$250) |
+| **Total** | | **~18 h** | **~$55** (+ ablation = ~$70) |
 
 Alternative: A100 ($0.60/h) instead of H100 ($0.95/h) — +50% runtime, −37% cost.
 
@@ -361,7 +362,7 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 ## Limitations
 
 - **Bench numbers are `[NOT YET MEASURED]`.** Until `make bench` runs on H100, all result rows are placeholders.
-- **Single target model.** Qwen3-14B only. Tri-layer indices [8, 20, 32] are model-specific.
+- **Single target model.** `Qwen/Qwen3-4B-Instruct-2507` only. Tri-layer indices `[7, 18, 29]` are model-specific (rescaled from Qwen3-14B's `[8, 20, 32]` for 36 vs 40 layers).
 - **Single-GPU training.** DeepSpeed ZeRO-2 single-GPU, not multi-node.
 - **Inference runtimes.** vLLM + SGLang only. Exllamav2, TensorRT-LLM, llama.cpp not benchmarked.
 - **Finance corpus source.** Depends on FinOpsGym availability + license. Fallback: SEC EDGAR-derived Q&A.

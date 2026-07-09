@@ -15,7 +15,6 @@ import pytest
 
 from scripts import operator_runpod as op
 
-
 # ── _recommend_table: filter + sort ──────────────────────────────────────────
 
 
@@ -114,8 +113,8 @@ def test_cmd_spec_emits_required_fields() -> None:
     rc = op.cmd_spec(args)
     assert rc == 0
     # Capture stdout via redirect
-    import io
     import contextlib
+    import io
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         op.cmd_spec(args)
@@ -130,8 +129,8 @@ def test_cmd_spec_emits_required_fields() -> None:
 
 def test_cmd_spec_clamps_disk_below_minimum() -> None:
     """disk < MIN_GPU_DISK_GB → bumped to min (RunPod would reject tiny disks)."""
-    import io
     import contextlib
+    import io
     args = argparse.Namespace(
         gpu="NVIDIA H100 80GB",
         gpu_count=1,
@@ -240,8 +239,8 @@ def test_cmd_run_timeout_returns_1() -> None:
 
 def test_cmd_one_liner_prints_required_steps() -> None:
     """one-liner covers recommend → spec → push → run → status → stop."""
-    import io
     import contextlib
+    import io
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         rc = op.cmd_one_liner(argparse.Namespace())

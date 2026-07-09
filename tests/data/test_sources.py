@@ -402,9 +402,9 @@ def _mock_urlopen(payloads: list[dict]):
 
 def test_load_edgar_offline_requires_path() -> None:
     """offline=True without path → ValueError (no implicit network fallback)."""
-    from data.sources.edgar import load_edgar_finance
-
     import pytest
+
+    from data.sources.edgar import load_edgar_finance
     with pytest.raises(ValueError, match="offline mode requires path"):
         load_edgar_finance(offline=True)
 
@@ -463,6 +463,7 @@ def test_load_edgar_finance_emits_qa_per_concept_year(tmp_path: Path) -> None:
 def test_load_edgar_skips_cik_on_network_error() -> None:
     """Network errors per CIK are non-fatal — loader continues to next."""
     import urllib.error
+
     from data.sources import edgar
 
     def flaky(_url, _ua, **_kw):

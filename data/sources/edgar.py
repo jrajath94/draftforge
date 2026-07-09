@@ -20,7 +20,7 @@ Modes:
 
 Usage:
     from data.sources.edgar import load_edgar_finance, write_edgar_cache
-    examples = load_edgar_finance()  # default ~8 issuers × 5 concepts × 12yrs
+    examples = load_edgar_finance()  # default ~8 issuers x 5 concepts x 12yrs
     write_edgar_cache(examples, Path("data/finance/edgar_cache.jsonl"))
 """
 
@@ -159,7 +159,7 @@ def load_edgar_finance(
     Returns:
         List of Example with domain="finance", source="edgar".
     """
-    if offline or path is not None and ciks is None:
+    if offline or (path is not None and ciks is None):
         # Offline / cache-only path
         if path is None:
             raise ValueError("offline mode requires path (local cache location)")
