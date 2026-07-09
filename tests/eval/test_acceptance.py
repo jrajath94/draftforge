@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -128,3 +130,116 @@ def test_json_dump_creates_sorted_json(tmp_path: Path) -> None:
     assert loaded == payload
     # sorted keys
     assert out.read_text().index('"a"') < out.read_text().index('"b"')
+
+
+# ---- CLI entrypoint -------------------------------------------------------
+#
+# `python -m eval.acceptance --results-root X --out Y` — arg shape used by
+# scripts/run_full_pipeline.sh and scripts/onboard_pod.sh.
+#
+# Tests invoke main() in-process so coverage measures the code path; the
+# __main__ arg-parser wiring is verified by ONE subprocess smoke test below.
+
+
+def test_cli_writes_empty_grid_when_no_serve_outputs(tmp_path: Path) -> None:
+    """main(): No serve JSONs -> empty grid still emitted; exit 0."""
+    from eval.acceptance import main as cli_main
+
+    results_root = tmp_path / "results"
+    results_root.mkdir()
+    out = tmp_path / "acceptance_grid.csv"
+    rc = cli_main(results_root, out)
+    assert rc == 0
+    assert out.exists()
+    text = out.read_text(encoding="utf-8")
+    assert text.startswith(
+        "domain,temperature,batch_size,mean_acceptance,eal,itl_ms"
+    )
+    assert text.strip().count("\n") == 0  # header only
+
+
+def test_cli_writes_rows_from_serve_jsons(tmp_path: Path) -> None:
+    """main(): Seeded serve JSONs -> grid populates with one row per JSON."""
+    from eval.acceptance import main as cli_main
+
+    results_root = tmp_path / "results"
+    serve_dir = (
+        results_root / "serve" / "vllm" / "finance" / "b4" / "t0.7"
+    )
+    serve_dir.mkdir(parents=True)
+    (serve_dir / "out.json").write_text(
+        json.dumps(
+            {
+                "domain": "finance",
+                "temperature": 0.7,
+                "batch_size": 4,
+                "mean_acceptance": 0.71,
+                "itl_ms": 35.2,
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "acceptance_grid.csv"
+    rc = cli_main(results_root, out)
+    assert rc == 0
+    lines = out.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2  # header + 1 row
+    row = dict(
+        zip(lines[0].split(","), lines[1].split(","), strict=True)
+    )
+    assert row["domain"] == "finance"
+    assert row["batch_size"] == "4"
+
+
+def test_cli_infers_domain_temperature_batch_from_path(tmp_path: Path) -> None:
+    """main(): Path shapes like .../general/.../b8/.../t0.0/... -> row parsed."""
+    from eval.acceptance import main as cli_main
+
+    results_root = tmp_path / "results"
+    nested = results_root / "serve" / "vllm" / "general" / "b8" / "t0.0"
+    nested.mkdir(parents=True)
+    (nested / "out.json").write_text("{}", encoding="utf-8")
+    out = tmp_path / "acceptance_grid.csv"
+    rc = cli_main(results_root, out)
+    assert rc == 0
+    lines = out.read_text(encoding="utf-8").strip().splitlines()
+    row = dict(
+        zip(lines[0].split(","), lines[1].split(","), strict=True)
+    )
+    assert row["domain"] == "general"
+    assert row["batch_size"] == "8"
+    assert float(row["temperature"]) == 0.0
+
+
+def test_cli_argparse_binding_smoke(tmp_path: Path) -> None:
+    """Subprocess: actual `python -m eval.acceptance ...` argparse path
+    works end-to-end (cheaper than full subprocess suite, but covers the
+    `if __name__ == "__main__":` block)."""
+    import eval.acceptance as cli  # noqa: F401 (ensures importable)
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "eval.acceptance",
+            "--results-root", str(tmp_path),
+            "--out", str(tmp_path / "g.csv"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (tmp_path / "g.csv").exists()
+
+
+def test_cli_missing_results_root_exits_nonzero(tmp_path: Path) -> None:
+    """Subprocess: Missing --results-root -> argparse exits 2."""
+    proc = subprocess.run(
+        [sys.executable, "-m", "eval.acceptance", "--out", str(tmp_path / "g.csv")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode != 0
+    assert "--results-root" in proc.stderr or "required" in proc.stderr

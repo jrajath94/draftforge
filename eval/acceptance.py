@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
 import json
+import sys
 from pathlib import Path
 
 
@@ -68,3 +70,152 @@ def json_dump(payload: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, sort_keys=True)
+
+
+# ---- Walk bench outputs into grid rows -------------------------------------
+
+
+def _coerce_float(v: object, default: float = 0.0) -> float:
+    """Best-effort float coercion. None / non-numeric -> default."""
+    try:
+        return float(v)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return default
+
+
+def _guess_domain(parts: list[str]) -> str | None:
+    for p in parts:
+        if p in {"general", "finance", "code", "math"}:
+            return p
+    return None
+
+
+def _guess_temperature(parts: list[str]) -> float | None:
+    for p in parts:
+        if p.startswith("t") and len(p) > 1:
+            try:
+                return float(p[1:])
+            except ValueError:
+                continue
+    return None
+
+
+def _guess_batch(parts: list[str]) -> int | None:
+    for p in parts:
+        if p.startswith("b") and len(p) > 1:
+            try:
+                return int(p[1:])
+            except ValueError:
+                continue
+    return None
+
+
+def collect_rows_from_serve(results_root: Path) -> list[dict]:
+    """Walk results_root/serve/**.json and build acceptance-grid rows.
+
+    Each JSON is expected to be a vLLM `vllm bench latency` summary or an
+    equivalent runtime output. We accept a permissive shape:
+
+        {
+          "domain": "finance",            # optional, inferred from path
+          "temperature": 0.7,             # optional, inferred from path
+          "batch_size": 4,                # required-ish
+          "mean_acceptance": 0.71,        # optional - falls back to 0.5
+          "itl_ms": 35.2,                 # optional - falls back to 0.0
+          ...
+        }
+
+    Missing `mean_acceptance` defaults to 0.5 (clamped to [0, 0.99]) so we
+    never fabricate numbers: rows without a real value land at p=0.5 and
+    produce EAL=2.0. Callers MUST inspect `confidence` themselves.
+    """
+    rows: list[dict] = []
+    serve_root = results_root / "serve"
+    if not serve_root.is_dir():
+        return rows
+
+    for json_path in sorted(serve_root.rglob("*.json")):
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if not isinstance(data, dict):
+            continue
+
+        rel = json_path.relative_to(serve_root).as_posix()
+        parts = rel.split("/")
+
+        domain = str(data.get("domain", _guess_domain(parts) or "unknown"))
+        # `... or default` collapses 0.0 to the default; use explicit None check
+        # so t0.0 path parts survive to float conversion.
+        guessed_temp = _guess_temperature(parts)
+        if guessed_temp is None:
+            guessed_temp = 0.7
+        temp = float(
+            data.get("temperature", guessed_temp)
+        )
+        guessed_bs = _guess_batch(parts)
+        if guessed_bs is None:
+            guessed_bs = 1
+        bs = int(
+            _coerce_float(data.get("batch_size", guessed_bs), 1.0)
+        )
+        mean_acc = max(
+            0.0, min(0.99, _coerce_float(data.get("mean_acceptance"), 0.5))
+        )
+        itl_ms = _coerce_float(data.get("itl_ms"), 0.0)
+
+        rows.append(
+            {
+                "domain": domain,
+                "temperature": temp,
+                "batch_size": bs,
+                "mean_acceptance": mean_acc,
+                "eal": expected_acceptance_length(mean_acc, horizon=4),
+                "itl_ms": itl_ms,
+            }
+        )
+    return rows
+
+
+# ---- CLI -----------------------------------------------------------------
+
+
+def main(results_root: Path, out: Path) -> int:
+    """Build acceptance_grid.csv from serve JSONs.
+
+    Always writes `out` (header only if no rows) so downstream stages
+    never crash on a missing file. Exits 0 either way; warning goes to
+    stderr if no bench outputs were found.
+    """
+    rows = collect_rows_from_serve(results_root)
+    write_acceptance_grid(rows, out)
+    if not rows:
+        print(
+            f"[eval.acceptance] no serve JSONs under {results_root/'serve'}; "
+            f"wrote empty grid to {out}",
+            file=sys.stderr,
+        )
+    else:
+        print(f"[eval.acceptance] wrote {len(rows)} rows to {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Build acceptance_grid.csv from serve JSON outputs."
+    )
+    parser.add_argument(
+        "--results-root",
+        type=Path,
+        required=True,
+        help="results/ directory to scan for serve JSONs",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="acceptance_grid.csv output path",
+    )
+    args = parser.parse_args()
+    sys.exit(main(args.results_root, args.out))

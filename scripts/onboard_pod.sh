@@ -92,13 +92,15 @@ cat <<EOF
        bash serve/bench.sh
 
   4. Acceptance analysis:
-       python -m eval.acceptance --results-root ./results
+       python -m eval.acceptance --results-root ./results \\
+         --out ./results/acceptance_grid.csv
 
   5. Release artifact + HF upload:
        python -m release.aggregate --results-root ./results \\
          --out ./results/manifest.json
-       python -m release.make_card --manifest ./results/manifest.json \\
-         --out ./HF_CARD.md
+       python -m release.make_card --template ./release/hf_card.md \\
+         --results ./results --head draftforge-eagle3-head \\
+         --target Qwen/Qwen3-4B --out ./HF_CARD.md
        huggingface-cli upload <your-org>/qwen3-14b-eagle3-finance \\
          ./checkpoints/<best-seed> \\
          ./HF_CARD.md
