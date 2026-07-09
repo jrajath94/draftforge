@@ -20,10 +20,31 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
   Same fractional early/mid/late coverage, model-specific rescale. No HF
   token required. Local gates: 166 tests pass, ruff + mypy clean.
 
+### Fixed
+- **`scripts/operator_runpod.py` Cloudflare 403.** RunPod's GraphQL endpoint
+  sits behind Cloudflare, which returns `HTTP 403 Forbidden` on requests
+  without an explicit User-Agent header (urllib's default `Python-urllib/3.12`
+  is blocked as a bot). Adds explicit `User-Agent: DraftForge/0.1 (operator; …)`
+  + regression test (`test_runpod_request_sends_user_agent`). Local gates:
+  `make h100-recommend` now reaches RunPod and prints a live GPU table.
+
+### Added
+- **`release/make_card.py` __main__-block coverage.** The `if __name__ ==
+  "__main__":` argparse + sys.exit() glue (lines 38-47) was uncovered because
+  subprocess invocations don't contribute to the parent process's coverage
+  slot. Adds `test_dunder_main_block_executes` using `runpy.run_module` with
+  `run_name="__main__"` to execute the block in-process. Coverage:
+  **68% → 100%** for `release/make_card.py`.
+- **WRITEUP §9 troubleshooting matrix + RunPod console diagram + guardrails.**
+  Adds three artifacts to the Operator Guide: an ASCII diagram of the RunPod
+  Custom Deploy form (mapping `make h100-spec` output 1:1 to UI fields),
+  a 10-row fail-fast troubleshooting table keyed by step order, and 5
+  explicit non-negotiable guardrails (no auto-pod-create, $200 cost ceiling,
+  results-pull-before-stop, `PUBLIC_KEY` vs repo URL, `--ssh-key`).
+
 ### Pending (HUMAN-OWNED)
-- _None at v1.1-cycle open. Narrative refresh (WRITEUP §2.1 retarget,
-  DECISIONS.md created, README Quickstart + Limitations + Prerequisites
-  + Cost Breakdown all updated) landed in `e88ad8e`._
+- _None at v1.1-cycle open. Operator Guide narrative expansion (console
+  diagram + troubleshooting matrix + guardrails) lands in this cycle._
 
   Per workspace `CLAUDE.md` §2.5, design narrative belongs to the human.
   Config + code + tests updated by Claude; prose awaits human review.
