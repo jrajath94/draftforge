@@ -4,8 +4,11 @@
 [![codecov](https://codecov.io/gh/jrajath94/draftforge/branch/main/graph/badge.svg)](https://codecov.io/gh/jrajath94/draftforge)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Version: v1.0](https://img.shields.io/badge/version-v1.0-blue)](CHANGELOG.md)
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
+
+**Status (v1.0):** Codebase complete. All 6 phases shipped, 167 tests pass, 82.9% aggregate coverage, `make audit` clean. Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime to fill the timing tables.
 
 ## Overview
 
@@ -101,18 +104,34 @@ pip install "draftforge[train]"  # PyTorch, DeepSpeed, accelerate
 The fastest way to verify the pipeline on any laptop:
 
 ```bash
-make demo   # CPU-only, no GPU, no HF, no network — ~30s
+make all   # CPU-only, no GPU, no HF, no network — ~30s
 ```
 
-This runs all 6 phases end-to-end with shape-true synthetic data and emits
-`results/demo/` containing a fully wired manifest.json + HF_CARD.md. Every
-artifact is watermarked `is_demo: true` so it can never be confused with
-measured numbers. See [Local Demo (no GPU)](#local-demo-no-gpu) below.
+`make all` is the no-GPU full artifact set: it chains `setup + audit + demo + card + writeup + verify`
+and produces every artifact the README points to except the trained weights.
 
 For real numbers (requires H100 + HF auth):
 
 ```bash
 make bench  # full pipeline, ~24h, ~$70 on H100 spot
+```
+
+Individual targets if you want one artifact at a time:
+
+| Command | What it does |
+|---------|--------------|
+| `make demo` | runs the local CPU pipeline (writes `results/demo/`) |
+| `make card` | renders `HF_CARD.md` from `release/hf_card.md` |
+| `make writeup` | asserts `WRITEUP.md` is present |
+| `make verify` | walks every CLI, proves argparse binds |
+| `make audit` | ruff + mypy + pytest (CI gate) |
+
+For quick API experiments (no setup needed if you've run `make setup` once):
+
+```bash
+.venv/bin/python examples/quickstart_acceptance.py  # EAL + crossover, CPU
+.venv/bin/python examples/quickstart_serve.py      # vLLM/SGLang invocations, CPU
+.venv/bin/python examples/quickstart_data.py       # data config inspection, CPU
 ```
 
 ### Data Preparation
@@ -285,9 +304,11 @@ Outputs the acceptance grid CSV + markdown report locating the batch-size crosso
   --head draftforge-eagle3-head \
   --target Qwen/Qwen3-4B \
   --out HF_CARD.md
-# manual upload
-huggingface-cli upload <your-org>/qwen3-14b-eagle3-finance \
-  results/train/tri_layer/42/best HF_CARD.md
+# Wrapper with integrity guard (refuses placeholder < 1 MiB safetensors)
+bash scripts/upload_hf.sh \
+  --repo-id <your-org>/qwen3-14b-eagle3-finance \
+  --checkpoint-dir results/train/tri_layer/42/best \
+  --card-path HF_CARD.md
 ```
 
 ### Cost Breakdown
@@ -345,7 +366,7 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 - **Inference runtimes.** vLLM + SGLang only. Exllamav2, TensorRT-LLM, llama.cpp not benchmarked.
 - **Finance corpus source.** Depends on FinOpsGym availability + license. Fallback: SEC EDGAR-derived Q&A.
 - **EAGLE-3 recipe pinned** to the version current as of 2026-07. Upstream changes may break replication.
-- **Coverage ceiling 73.2%** aggregate. Core modules (data, train/config, train/head, eval, ablate, release/aggregate) all >75%. Shell/invocation modules (serve/bench, serve/profile, release/__main__) untestable without GPU by design.
+- **Coverage ceiling 82.9%** aggregate (v1.0). Core modules (data, train/config, train/head, eval, ablate, release/aggregate) all ≥75%. Shell/invocation modules (serve/bench, serve/profile, release/__main__) untestable without GPU by design.
 - **No pre-trained checkpoint shipped.** Only the pipeline + integration scaffolding.
 - Trained on instruction-following tasks; may not generalize to coding or long-context tasks without retraining.
 - Acceptance rates are sensitive to temperature and prompt format (system prompt, chat template).

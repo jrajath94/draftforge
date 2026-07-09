@@ -29,6 +29,7 @@ sources:
     type: finance
     path: ./data/finance/finance_qa.jsonl
     max_examples: 10000
+    domain: finance
 
 dedup:
   method: exact+minhash    # exact first, then minhash near-dup
