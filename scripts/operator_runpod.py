@@ -26,7 +26,6 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
-import shutil
 import subprocess
 import sys
 import urllib.error
@@ -82,7 +81,7 @@ def _runpod_gpu_types() -> list[dict[str, Any]]:
 def _recommend_table(max_hr: float = 3.0, min_mem_gb: int = 80) -> list[dict[str, Any]]:
     """Filter to (memory ≥ min_mem_gb, community price ≤ max_hr), sorted by perf/$.
 
-    Heuristic perf score: memoryInGb × 1000 / communityPrice.
+    Heuristic perf score: memoryInGb x 1000 / communityPrice.
     Higher = better price-per-GB.
     """
     out = []
@@ -160,15 +159,15 @@ def cmd_spec(args: argparse.Namespace) -> int:
     print("  2. Set PUBLIC_KEY to your `cat ~/.ssh/id_rsa.pub`")
     print("  3. Click Deploy. Wait for pod = RUNNING.")
     print("  4. Note the pod ID and SSH command (RunPod UI shows them).")
-    print(f"  5. ssh -p <port> root@<host>  (RunPod shows host:port)")
+    print("  5. ssh -p <port> root@<host>  (RunPod shows host:port)")
     print("  6. Then:")
     print(
-        f"       python scripts/operator_runpod.py push <POD_ID> "
-        f"--ssh-port <PORT> --ssh-host <HOST>"
+        "       python scripts/operator_runpod.py push <POD_ID> "
+        "--ssh-port <PORT> --ssh-host <HOST>"
     )
     print(
-        f"       python scripts/operator_runpod.py run  <POD_ID> "
-        f"--ssh-port <PORT> --ssh-host <HOST>"
+        "       python scripts/operator_runpod.py run  <POD_ID> "
+        "--ssh-port <PORT> --ssh-host <HOST>"
     )
     return 0
 
@@ -206,12 +205,10 @@ def cmd_push(args: argparse.Namespace) -> int:
     # 1. SCP the repo into the pod (rsync would be cleaner but adds dep).
     remote_dst = f"root@{args.ssh_host}:/workspace/"
     print(f"[push] copying repo to {remote_dst}")
-    _run(scp_base + [str(REPO_ROOT), remote_dst], check=False)
+    _run([*scp_base, str(REPO_ROOT), remote_dst], check=False)
 
     # 2. SSH in and run onboard_pod.sh.
-    cmd = ssh_base + [
-        f"bash /workspace/draftforge/scripts/onboard_pod.sh"
-    ]
+    cmd = [*ssh_base, "bash /workspace/draftforge/scripts/onboard_pod.sh"]
     try:
         _run(cmd, check=True, timeout=900)
     except subprocess.CalledProcessError as e:
@@ -232,11 +229,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         env_overrides += " SKIP_SERVE=1"
     if args.n_seeds:
         env_overrides += f" N_SEEDS={args.n_seeds}"
-    cmd = ssh_base + [
-        f"cd /workspace/draftforge && "
-        f"export{env_overrides} && "
-        f"bash scripts/run_full_pipeline.sh 2>&1 | tee /workspace/draftforge/pipeline.log"
-    ]
+    cmd = [*ssh_base, f"cd /workspace/draftforge && " f"export{env_overrides} && " f"bash scripts/run_full_pipeline.sh 2>&1 | tee /workspace/draftforge/pipeline.log"]
     print("[run] full pipeline (training+ablation+serve+analyze+release).")
     print("[run] tail logs with: operator_runpod.py status <POD>")
     print("[run] stop with:        operator_runpod.py stop <POD>")
@@ -253,13 +246,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 def cmd_status(args: argparse.Namespace) -> int:
     ssh_base = _ssh_base(args.ssh_host, args.ssh_port, args.ssh_key)
-    cmd = ssh_base + [
-        "echo '--- nvidia-smi ---' && nvidia-smi --query-gpu=memory.used,memory.total,"
-        "utilization.gpu --format=csv && "
-        "echo '--- last 50 lines of pipeline.log (if any) ---' && "
-        "(test -f /workspace/draftforge/pipeline.log && "
-        "tail -n 50 /workspace/draftforge/pipeline.log || echo '(no pipeline.log yet)')"
-    ]
+    cmd = [*ssh_base, "echo '--- nvidia-smi ---' && nvidia-smi --query-gpu=memory.used,memory.total," "utilization.gpu --format=csv && " "echo '--- last 50 lines of pipeline.log (if any) ---' && " "(test -f /workspace/draftforge/pipeline.log && " "tail -n 50 /workspace/draftforge/pipeline.log || echo '(no pipeline.log yet)')"]
     try:
         _run(cmd, check=False, timeout=30)
     except subprocess.TimeoutExpired:
@@ -272,7 +259,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
     ssh_base = _ssh_base(args.ssh_host, args.ssh_port, args.ssh_key)
     print("[stop] WARNING: terminating pod (draftforge data on /workspace is volatile).")
     print("[stop] persist results with: scp -P <port> root@<host>:/workspace/draftforge/results ./results")
-    cmd = ssh_base + ["shutdown -h now"]
+    cmd = [*ssh_base, "shutdown -h now"]
     try:
         _run(cmd, check=False, timeout=15)
     except subprocess.CalledProcessError:
@@ -282,7 +269,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
 
 def cmd_one_liner(_args: argparse.Namespace) -> int:
     print("=" * 70)
-    print("DraftForge × RunPod — full user-runtime sequence")
+    print("DraftForge x RunPod — full user-runtime sequence")
     print("=" * 70)
     print()
     print("# 1. Pick a GPU (latest, ≤$3/hr, ≥80GB):")
@@ -322,7 +309,7 @@ def cmd_one_liner(_args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="operator_runpod",
-        description="DraftForge × RunPod one-command operator.",
+        description="DraftForge x RunPod one-command operator.",
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -348,7 +335,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--ssh-key", default=None, help="Path to SSH private key.")
 
     # run-specific extras
-    run_p = sub_cast = sub.choices["run"]  # type: ignore[attr-defined]
+    run_p = sub.choices["run"]  # type: ignore[attr-defined]
     run_p.add_argument("--n-seeds", type=int, default=1,
                        help="Number of training seeds (default 1; 3 = full reproducibility).")
     run_p.add_argument("--skip-train", action="store_true")

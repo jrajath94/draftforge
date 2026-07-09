@@ -236,7 +236,7 @@ def test_load_source_edgar_dispatches_with_ciks(
             source="edgar",
         )
     ]
-    cache_path = tmp_path / "edgar_cache.jsonl"
+    tmp_path / "edgar_cache.jsonl"
     captured: dict = {}
 
     def fake_loader(
