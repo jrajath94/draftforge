@@ -51,6 +51,64 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.1.0] — 2026-07-09 — Operator + Coverage + RunPod Fix
+
+"Codebase + GPU operator" version. Adds a one-command RunPod operator that
+makes the GPU-bound portion of the pipeline (Section 9 of WRITEUP.md) a
+single copy-paste flow, plus a SEC EDGAR fallback data loader for offline
+finance-domain training, plus the Cloudflare 403 fix that unblocks `make
+h100-recommend`. **209 tests pass** (up from 166 at v1.0); aggregate
+coverage **83.2%** (up from 82.9%); `release/make_card.py` lifted from 68%
+to 100%.
+
+### Added
+- **`scripts/operator_runpod.py` (one-command RunPod operator).** Subcommands:
+  `recommend` (live GPU table from `api.runpod.io` GraphQL), `spec` (JSON
+  pod-create payload, paste into RunPod Custom Deploy UI), `push` (scp +
+  `scripts/onboard_pod.sh`), `run` (24 h ceiling, threads SKIP_* + N_SEEDS
+  env into remote shell), `status` (live `nvidia-smi` + `pipeline.log` tail),
+  `stop` (ssh shutdown), `one-liner` (print the 7-step user-runtime sequence).
+  Wired to `make h100`, `make h100-recommend`, `make h100-spec`,
+  `make h100-push`, `make h100-run`, `make h100-status`, `make h100-stop`,
+  `make h100-oneliner`.
+- **`scripts/onboard_pod.sh` + `scripts/run_full_pipeline.sh`.** Pod-side
+  companion scripts. `onboard_pod.sh` installs deps + isolates HF cache;
+  `run_full_pipeline.sh` chains stages 1–6 with the same env threading the
+  operator uses.
+- **`data/sources/edgar.py` (SEC EDGAR fallback loader).** Public XBRL
+  company-facts API; no auth; honors fair-access policy (User-Agent
+  required, 0.15 s rate limit). Emits one Q&A per (entity, concept,
+  fiscal-year) — 8 default issuers × 5 us-gaap concepts × 12 yrs ≈ 480
+  rows. Wired into `data/config.py` as `SourceType.EDGAR` + a new
+  `edgar-finance` source entry in `data/config.yaml`.
+- **WRITEUP §9 expanded.** RunPod Custom Deploy form ASCII diagram (1:1
+  with `make h100-spec` output), 10-row troubleshooting matrix keyed by
+  step order, 5 explicit non-negotiable guardrails (no auto-pod-create,
+  $200 cost ceiling, results-pull-before-stop, `PUBLIC_KEY` vs repo URL,
+  `--ssh-key`).
+
+### Fixed
+- **Cloudflare 403 on RunPod GraphQL.** `urllib.request.Request` with no
+  User-Agent returns `HTTP 403 Forbidden` from `api.runpod.io` (Cloudflare
+  blocks default `Python-urllib/3.12` as a bot). Adds explicit
+  `User-Agent: DraftForge/0.1 (operator; …)` + regression test
+  (`test_runpod_request_sends_user_agent`). Verified live: `make h100-recommend`
+  now prints 10 GPUs (H100 NVL, H200 NVL, MI300X, etc.).
+
+### Test
+- **Coverage lift: `release/make_card.py` 68% → 100%.** Adds
+  `test_dunder_main_block_executes` using `runpy.run_module(...,
+  run_name="__main__")` to execute the argparse + sys.exit() glue
+  in-process. Subprocess invocations are a separate process and don't
+  contribute to coverage.
+
+### Docs
+- README: status block + Limitations (v1.0 → v1.1), version badge.
+- WRITEUP §7 (Test surface) and §7 (Aggregate coverage) bumped to v1.1
+  numbers. §9 expanded (see Added above).
+
+---
+
 ## [1.0.0] — 2026-07-09 — Milestone v1.0 (CODE-READY + ARTIFACTS-READY)
 
 "Completed version" of the project: every file the README points to exists, every

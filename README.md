@@ -4,11 +4,11 @@
 [![codecov](https://codecov.io/gh/jrajath94/draftforge/branch/main/graph/badge.svg)](https://codecov.io/gh/jrajath94/draftforge)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version: v1.0](https://img.shields.io/badge/version-v1.0-blue)](CHANGELOG.md)
+[![Version: v1.1](https://img.shields.io/badge/version-v1.1-blue)](CHANGELOG.md)
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
 
-**Status (v1.0):** Codebase complete. All 6 phases shipped, 166 tests pass, 82.9% aggregate coverage, `make audit` clean. Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime to fill the timing tables.
+**Status (v1.1):** Codebase + RunPod operator complete. All 6 phases shipped + RunPod GPU operator + SEC EDGAR fallback loader, **209 tests pass**, **83.2% aggregate coverage**, `make audit` clean. Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
 
 ## Overview
 
@@ -367,7 +367,7 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 - **Inference runtimes.** vLLM + SGLang only. Exllamav2, TensorRT-LLM, llama.cpp not benchmarked.
 - **Finance corpus source.** Depends on FinOpsGym availability + license. Fallback: SEC EDGAR-derived Q&A.
 - **EAGLE-3 recipe pinned** to the version current as of 2026-07. Upstream changes may break replication.
-- **Coverage ceiling 82.9%** aggregate (v1.0). Core modules (data, train/config, train/head, eval, ablate, release/aggregate) all ≥75%. Shell/invocation modules (serve/bench, serve/profile, release/__main__) untestable without GPU by design.
+- **Coverage ceiling 83.2%** aggregate (v1.1). Core modules (data, train/config, train/head, eval, ablate, release/aggregate, release/make_card) all ≥75%. Shell/invocation modules (serve/bench, serve/profile, train/train_eagle3) untestable without GPU by design.
 - **No pre-trained checkpoint shipped.** Only the pipeline + integration scaffolding.
 - Trained on instruction-following tasks; may not generalize to coding or long-context tasks without retraining.
 - Acceptance rates are sensitive to temperature and prompt format (system prompt, chat template).

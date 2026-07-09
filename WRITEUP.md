@@ -480,7 +480,7 @@ bash scripts/upload_hf.sh \
 - `scripts/verify.sh` — CLI smoke walker (proves every argparse/typer binding).
 - `scripts/run_demo.py` — CPU pipeline orchestrator for `make demo`.
 
-**Test surface:** `pytest` (target coverage ≥75% per CLAUDE.md). **166 tests at v1.0** (post-test-count-drift-fix, was 167 in CHANGELOG v1.0.0 notes — corrected in `595dfaa` and `80a0261`).
+**Test surface:** `pytest` (target coverage ≥75% per CLAUDE.md). **209 tests at v1.1** (post-EDGAR-loader + RunPod operator + make_card-coverage-lift).
 
 - `tests/train/test_head.py` — forward-pass shape tests.
 - `tests/train/test_determinism.py` — 4 slow tests for seed reproducibility.
@@ -501,7 +501,7 @@ bash scripts/upload_hf.sh \
 
 **CI:** GitHub Actions 3-gate (`make audit`: ruff + mypy + pytest, conventional-commits via PR title check). See `.github/workflows/ci.yml`.
 
-**Aggregate coverage:** ≥ 82.9% at v1.0. Core modules (`train/`, `data/`, `ablate/`, `eval/`, `release/`) ≥ 75% per spec.
+**Aggregate coverage:** ≥ 83.2% at v1.1. Core modules (`train/`, `data/`, `ablate/`, `eval/`, `release/`) ≥ 75% per spec. `release/make_card.py` lifted 68% → 100% via `runpy`-driven `__main__` block test.
 
 ---
 
