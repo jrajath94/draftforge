@@ -1,0 +1,64 @@
+# DraftForge training config — the exact hyperparams used to train this head.
+# Re-running with these settings + same seed + same data splits should
+# reproduce the loss curve within the determinism contract (see
+# tests/train/test_determinism.py).
+#
+# PLACEHOLDER VALUES — replace with the final run's config before
+# uploading the trained head to HuggingFace.
+
+model:
+  name_or_path: Qwen/Qwen3-14B
+  torch_dtype: bfloat16
+  attn_impl: sdpa
+
+dataset:
+  train_dir: artifacts/data/tokenized/train
+  val_dir: artifacts/data/tokenized/val
+  max_length: 4096
+  text_field: text
+
+eagle3:
+  layer_indices: [8, 20, 32]
+  num_decoder_layers: 1
+  head_dim: null
+
+optimizer:
+  name: adamw
+  lr: 1.0e-4
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  warmup_steps: 100
+
+training:
+  seed: 42
+  max_steps: 2000
+  per_device_batch_size: 1
+  grad_accum: 8
+  log_every: 10
+  eval_every: 200
+  save_every: 500
+  bf16: true
+  gradient_checkpointing: true
+  training_time_test_every: 100
+  training_time_test_horizon: 5
+
+ds:
+  config_path: train/ds_config.json
+  num_gpus: 1
+  mixed_precision: bf16
+
+output:
+  dir: results/train/run1
+  save_every: 500
+  keep_last_n_checkpoints: 2
+
+# Provenance for the published head
+head_release:
+  is_placeholder: true
+  trained_seeds: []
+  trained_steps: 0
+  final_loss_mean: null
+  final_loss_std: null
+  trained_at_utc: null
+  trained_on_hardware: null
+  release_notes: "v1.0 placeholder — no weights trained. See CHANGELOG.md."
