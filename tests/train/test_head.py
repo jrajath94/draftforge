@@ -231,3 +231,113 @@ def test_unsorted_layer_indices_sorted(stub_target) -> None:
         num_decoder_layers=1,
     )
     assert head.layer_indices == [1, 2, 3]
+
+
+class _BadHiddenCountInnerModel(nn.Module):
+    """Stub inner model that returns the WRONG number of hidden states.
+
+    Mimics the failure mode of a mis-tapped target (e.g., older transformers
+    versions where output_hidden_states returned N instead of N+1). The
+    EAGLE-3 head must refuse rather than silently index into wrong slots
+    and poison a $70+ training run.
+    """
+
+    def __init__(self, hidden_size: int = 64, num_layers: int = 4, bad_count: int = 1) -> None:
+        super().__init__()
+        self.embed_tokens = nn.Embedding(_StubConfig.vocab_size, hidden_size)
+        self.layers = nn.ModuleList(
+            _StubLayer(hidden_size) for _ in range(num_layers)
+        )
+        self.norm = nn.LayerNorm(hidden_size)
+        self._bad_count = bad_count
+
+    def forward(self, input_ids, **_kw):
+        h = self.embed_tokens(input_ids)
+        for layer in self.layers:
+            h = layer(hidden_states=h)[0]
+        h = self.norm(h)
+        out = type("O", (), {})()
+        out.last_hidden_state = h
+        # Truncated hidden_states tuple — too short for the head's taps.
+        out.hidden_states = tuple(h for _ in range(self._bad_count))
+        return out
+
+
+class _BadHiddenCountTargetModel(nn.Module):
+    def __init__(self, hidden_size: int = 64, num_layers: int = 4, bad_count: int = 1) -> None:
+        super().__init__()
+        self.config = _StubConfig()
+        self.model = _BadHiddenCountInnerModel(
+            hidden_size=hidden_size, num_layers=num_layers, bad_count=bad_count
+        )
+        self.lm_head = nn.Linear(hidden_size, _StubConfig.vocab_size, bias=False)
+
+    def forward(self, input_ids, output_hidden_states=False, **_kw):
+        result = self.model(input_ids=input_ids)
+        last = result.last_hidden_state
+        if not output_hidden_states:
+            result.hidden_states = None
+        out = type("O", (), {})()
+        out.hidden_states = result.hidden_states
+        out.last_hidden_state = last
+        return out
+
+
+def test_off_by_one_hidden_states_rejected() -> None:
+    """Silent mis-tap guard: target returning wrong hidden-state tuple length must fail loudly.
+
+    For num_hidden_layers=4 the head expects 5 hidden states (embedding + 4 layers).
+    A target returning only 1 must raise AssertionError with a clear message — not
+    silently index into wrong positions and poison training.
+    """
+    bad_target = _BadHiddenCountTargetModel(num_layers=4, bad_count=1)
+    head = EAGLE3Head(
+        target_model=bad_target,
+        target_config=_StubConfig(),
+        layer_indices=[1, 2, 3],
+        num_decoder_layers=1,
+    )
+    head.eval()
+    input_ids = torch.randint(0, _StubConfig.vocab_size, (2, 8))
+    with pytest.raises(AssertionError, match=r"hidden states"):
+        with torch.no_grad():
+            head(input_ids=input_ids)
+
+
+def test_off_by_one_too_many_hidden_states_rejected() -> None:
+    """Inverse case: too many hidden states must also fail (catches double-counting)."""
+    bad_target = _BadHiddenCountTargetModel(num_layers=4, bad_count=10)
+    head = EAGLE3Head(
+        target_model=bad_target,
+        target_config=_StubConfig(),
+        layer_indices=[1, 2, 3],
+        num_decoder_layers=1,
+    )
+    head.eval()
+    input_ids = torch.randint(0, _StubConfig.vocab_size, (2, 8))
+    with pytest.raises(AssertionError, match=r"hidden states"):
+        with torch.no_grad():
+            head(input_ids=input_ids)
+
+
+def test_no_hidden_states_raises_runtime_error() -> None:
+    """target_model that didn't return hidden_states at all must raise RuntimeError."""
+    bad_target = _BadHiddenCountTargetModel(num_layers=4, bad_count=1)
+    # Override forward to suppress hidden_states entirely
+    def _no_hidden(self_, input_ids, output_hidden_states=False, **_kw):
+        out = type("O", (), {})()
+        out.hidden_states = None
+        out.last_hidden_state = self_.model(input_ids=input_ids).last_hidden_state
+        return out
+    bad_target.forward = _no_hidden.__get__(bad_target)  # type: ignore[method-assign]
+    head = EAGLE3Head(
+        target_model=bad_target,
+        target_config=_StubConfig(),
+        layer_indices=[1, 2, 3],
+        num_decoder_layers=1,
+    )
+    head.eval()
+    input_ids = torch.randint(0, _StubConfig.vocab_size, (2, 8))
+    with pytest.raises(RuntimeError, match=r"hidden_states"):
+        with torch.no_grad():
+            head(input_ids=input_ids)
