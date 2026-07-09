@@ -51,9 +51,17 @@ help:
 	@echo "  make clean     remove caches"
 
 setup:
-	python3 -m venv .venv 2>/dev/null || python3.12 -m venv .venv
-	.venv/bin/pip install --quiet --upgrade pip
-	.venv/bin/pip install --quiet -e ".[train,dev]"
+	@# Idempotent: only create venv if missing or wrong Python version.
+	@# Prevents clobbering a working Python 3.12 venv when system `python3`
+	@# resolves to 3.14 (no torch wheel for 3.14 yet as of 2026-07).
+	@if [ ! -d .venv ] || [ ! -x .venv/bin/python ]; then \
+		echo "[setup] creating .venv with python3.12 (pinned — torch wheel compatible)"; \
+		python3.12 -m venv .venv || python3 -m venv .venv; \
+		.venv/bin/pip install --quiet --upgrade pip; \
+		.venv/bin/pip install --quiet -e ".[train,dev]"; \
+	else \
+		echo "[setup] .venv exists with $$(.venv/bin/python -c 'import sys; print(sys.version.split()[0])') — skipping (delete .venv to force recreate)"; \
+	fi
 
 test:
 	$(PYTHON) -m pytest -q --no-header
