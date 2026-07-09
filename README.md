@@ -1,19 +1,10 @@
-# DraftForge — EAGLE-3 Speculative Decoding Head Training
+# DraftForge
 
-Train and evaluate speculative-decoding draft heads for target models. Includes ablation (tri-layer fusion vs final-layer) and vLLM/SGLang integration.
+Train and evaluate speculative-decoding draft heads (EAGLE-3 style) for target models. Includes an ablation comparing tri-layer fusion against final-layer-only features, and integration with vLLM and SGLang.
 
 ## Status
 
-🏗️ Phase 1: Data pipeline (instruction traces + finance domain) - in progress
-
-## Quick Links
-
-- [CLAUDE.md Protocol](CLAUDE.md)
-- [Workspace Briefing](../workspace/CLAUDE.md)
-
-## Build Status
-
-CI/tests not yet configured.
+Early stage. Phase 1 (data pipeline: instruction traces plus a finance-domain set) is in progress. CI and tests are not set up yet.
 
 ## License
 
