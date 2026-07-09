@@ -21,7 +21,7 @@
 PYTHON ?= .venv/bin/python
 N_SEEDS ?= 3
 
-.PHONY: setup test lint types coverage audit onboard bench clean help
+.PHONY: setup test lint types coverage audit onboard bench demo clean help
 
 help:
 	@echo "DraftForge Makefile"
@@ -33,6 +33,7 @@ help:
 	@echo "  make audit     lint + types + test (CI gate)"
 	@echo "  make onboard   pod onboarding (scripts/onboard_pod.sh)"
 	@echo "  make bench     full pipeline (scripts/run_full_pipeline.sh) — needs GPU"
+	@echo "  make demo      local CPU pipeline (scripts/run_demo.py) — no GPU"
 	@echo "  make clean     remove caches"
 
 setup:
@@ -60,6 +61,9 @@ onboard:
 
 bench:
 	N_SEEDS=$(N_SEEDS) bash scripts/run_full_pipeline.sh
+
+demo:
+	$(PYTHON) scripts/run_demo.py
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov coverage.xml .coverage
