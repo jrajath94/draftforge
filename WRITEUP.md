@@ -593,6 +593,53 @@ This section is for the user who wants to fill the `[NOT YET MEASURED]` markers 
 
 (Within the $200-250 budget ceiling from STATE.md; 1-seed path is the floor for any honest measured number.)
 
+**RunPod console flow** (what the screens look like):
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │ RunPod UI → Pods → + Deploy → Custom                        │
+  │   ┌──────────────────────────────────────────────────────┐   │
+  │   │ Container Image:  runpod/pytorch:2.4.0-...-ubuntu22 │   │
+  │   │ GPU Type:         NVIDIA H100 80GB HBM3             │   │
+  │   │ GPU Count:        1                                  │   │
+  │   │ Container Disk:   200 GB (minimum)                   │   │
+  │   │ Volume Disk:      0 GB                               │   │
+  │   │ Volume Mount:     /workspace                         │   │
+  │   │ Exposed Ports:    22/tcp                             │   │
+  │   │ Env:  PUBLIC_KEY = <paste ~/.ssh/id_rsa.pub>        │   │
+  │   │       DRAFTFORGE_HOME = /workspace/draftforge        │   │
+  │   └──────────────────────────────────────────────────────┘   │
+  │                                                              │
+  │ → Deploy  → wait ~60 s for state = RUNNING                  │
+  │ → note: pod_id, host (e.g. 209.151.240.121), port (e.g. 31145) │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+`make h100-spec --gpu <ID>` emits exactly the JSON RunPod's Custom Deploy form expects. Copy-paste reduces "which field goes where" errors to zero.
+
+**Troubleshooting matrix** (fail-fast lookup, in step order):
+
+| Step | Symptom | Root cause | Fix |
+|------|---------|------------|-----|
+| `h100-recommend` | `HTTP 403 Forbidden` | urllib default User-Agent blocked by Cloudflare | Already auto-fixed in `operator_runpod.py` (sets explicit UA) |
+| `h100-recommend` | `URLError: Name or service not known` | no outbound DNS / corp proxy | set `HTTPS_PROXY` env or run from a non-corp network |
+| `h100-recommend` | empty table, all GPUs filtered | filter too tight (`max_hr < $2`, `min_mem > 192 GB`) | rerun with `make h100-recommend MAX_HR=4.0 MIN_MEM=80` |
+| `h100-push` | `Permission denied (publickey)` | `~/.ssh/id_rsa.pub` not pasted into `PUBLIC_KEY` env | paste full output of `cat ~/.ssh/id_rsa.pub` (one line, no trailing newline stripped) |
+| `h100-push` | `scp: Connection refused` | pod not yet `RUNNING` | wait 60–90 s after Deploy; check RunPod UI status |
+| `h100-push` | `onboard_pod.sh` hangs at `apt-get install` | container disk < 50 GB free | set `containerDiskInGb = 200` (RunPod minimum is large enough) |
+| `h100-run` | `CUDA out of memory` after 1st epoch | Qwen3-4B bf16 + EAGLE head + Adam optimizer states exceed 80 GB | rerun with `GPU=NVIDIA H100 NVL` (94 GB) or `SKIP_ABLATE=1` and reduce batch |
+| `h100-run` | `RuntimeError: NaN loss` at step >500 | learning rate too high for tri-layer fusion | rerun with `LR=2e-4` (default is 5e-4) — set in `configs/eagle3_default.yaml` |
+| `h100-run` | timeout after 24 h | pipeline genuinely ran 24 h ceiling | check `pipeline.log` via `h100-status`; if stage 2 still mid-run, restart with `SKIP_ABLATE=1 SKIP_SERVE=1 N_SEEDS=1` to finish stage 2 only |
+| `h100-stop` | `shutdown` rejected by RunPod | pod already terminated | check RunPod UI — terminate via UI if operator times out |
+
+**Guardrails** (explicit, non-negotiable):
+
+1. **No auto-pod-create.** The operator never POSTs to RunPod's pod-create endpoint. The user pastes `spec` JSON into the RunPod UI; that single click is the explicit "I am spending money" boundary.
+2. **Cost ceiling $200.** Per STATE.md. If your pod is still RUNNING after 24 h, terminate it (`h100-stop` or RunPod UI Terminate). Don't trust auto-stop.
+3. **Results pulled before stop.** `/workspace/draftforge/results` is on container disk (volatile). Run `scp ... results` *before* `h100-stop`.
+4. **SSH key in `PUBLIC_KEY`, not `DRAFTFORGE_REPO_URL`.** The `PUBLIC_KEY` env var is what RunPod uses to inject `~/.ssh/authorized_keys`. The repo URL is what `scripts/onboard_pod.sh` clones.
+5. **Don't skip the `--ssh-key` flag if your key isn't `~/.ssh/id_rsa`.** Operator passes it through to `ssh -i` / `scp -i`.
+
 **What this writeup will look like at v1.1.** The plan: replace `[NOT YET MEASURED]` markers with measured values, regenerate `HF_CARD.md` from the real `results/manifest.json`, retag `v1.1`, push. The architectural claims (tri-layer beats final-layer; crossover B*; domain-shift penalty) stay defensible from first principles even before measurement; the numeric values are what get filled in.
 
 ---
