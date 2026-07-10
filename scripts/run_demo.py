@@ -227,7 +227,19 @@ def step_mock_acceptance(results_root: Path) -> None:
         str(eval_root / "crossover_analysis.md"),
     ]
     subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
-    log(f"wrote {len(rows)} acceptance rows + crossover report")
+    # Materialize the acceptance-by-batch plot so `make figures` passes.
+    # The plot module is real; only the demo was missing the call.
+    from eval.acceptance import load_grid
+    from eval.plot import plot_acceptance_by_batch
+
+    grid_rows = load_grid(grid_path)
+    if grid_rows:
+        plot_acceptance_by_batch(
+            grid_rows,
+            eval_root / "acceptance_by_batch.png",
+            title="EAGLE-3 Acceptance Length vs Batch Size (demo)",
+        )
+    log(f"wrote {len(rows)} acceptance rows + crossover report + plot")
 
 
 def step_release(results_root: Path) -> None:
