@@ -481,6 +481,66 @@ def test_load_edgar_skips_cik_on_network_error() -> None:
     assert all(e.meta["cik"] == "0000320193" for e in out)
 
 
+def test_load_edgar_raises_runtimeerror_when_all_ciks_blocked_by_waf() -> None:
+    """SEC WAF 403 on every CIK must fail loudly, not silently return [].
+
+    Addendum (post-data-pre-flight): if a User-Agent contains '+' or other
+    non-conforming chars, the SEC WAF returns 403 for every CIK. Returning an
+    empty list would propagate garbage through the pipeline (0 training rows
+    after dedup), so the loader raises RuntimeError with a fixable hint.
+
+    Without this guard, operators hit the failure 24 h into a $70 training run
+    when the model trains on 0 finance examples — debug nightmare.
+    """
+    import urllib.error
+
+    import pytest
+
+    from data.sources import edgar
+
+    def forbidden(_url, _ua, **_kw):
+        raise urllib.error.HTTPError(
+            url=_url, code=403, msg="Forbidden", hdrs=None, fp=None  # type: ignore[arg-type]
+        )
+
+    with patch.object(edgar, "_http_get_json", side_effect=forbidden):
+        with pytest.raises(RuntimeError, match="SEC EDGAR blocked all"):
+            edgar.load_edgar_finance(
+                ciks=["0000320193", "0000789019"],
+                rate_limit_sec=0.0,
+                user_agent="DraftForge/test (+bad@example.com)",
+            )
+
+
+def test_load_edgar_succeeds_when_partial_ciks_blocked() -> None:
+    """WAF blocks some CIKs but others succeed → return what we can.
+
+    If at least one CIK returns data, the loader emits it without raising.
+    Only when EVERY CIK is blocked (out is empty AND blocked_count > 0) does
+    it raise. This avoids false alarms when the WAF blocks only a subset
+    of issuers.
+    """
+    import urllib.error
+
+    from data.sources import edgar
+
+    def partial(_url, _ua, **_kw):
+        if "0000320193" in _url:
+            raise urllib.error.HTTPError(
+                url=_url, code=403, msg="Forbidden", hdrs=None, fp=None  # type: ignore[arg-type]
+            )
+        return _fake_edgar_payload("Microsoft", "0000789019")
+
+    with patch.object(edgar, "_http_get_json", side_effect=partial):
+        out = edgar.load_edgar_finance(
+            ciks=["0000320193", "0000789019"],
+            rate_limit_sec=0.0,
+        )
+    # Microsoft (CIK 0000789019) yielded 3 Q&A; Apple (0000320193) was 403'd
+    assert len(out) == 3
+    assert all(e.meta["cik"] == "0000789019" for e in out)
+
+
 def test_load_edgar_respects_max_examples() -> None:
     """max_examples caps the output size."""
     from data.sources import edgar

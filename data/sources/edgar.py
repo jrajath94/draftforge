@@ -27,6 +27,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -167,12 +168,29 @@ def load_edgar_finance(
 
     ciks_to_use = ciks if ciks is not None else DEFAULT_CIKS
     out: list[Example] = []
+    blocked_count = 0
     for cik in ciks_to_use:
         if len(out) >= max_examples:
             break
         url = f"{EDGAR_BASE}/api/xbrl/companyfacts/CIK{cik}.json"
         try:
             payload = _http_get_json(url, user_agent)
+        except urllib.error.HTTPError as e:
+            # SEC's WAF returns 403 for UAs with non-conforming chars
+            # (notably '+' in URLs, or anything matching bot patterns).
+            # Fail loudly so the operator knows their UA is the problem
+            # rather than getting a silent zero return.
+            if e.code in (403, 429):
+                print(
+                    f"[edgar] CIK {cik}: HTTP {e.code} from SEC. "
+                    f"User-Agent '{user_agent}' may be blocked. "
+                    f"Use the DEFAULT_USER_AGENT or a contact string without '+' chars.",
+                    file=sys.stderr,
+                )
+                blocked_count += 1
+                continue
+            # Other HTTP errors: skip and continue
+            continue
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError):
             # Network down — caller can retry later, or load from cache via path=
             continue
@@ -194,6 +212,15 @@ def load_edgar_finance(
             )
             out.extend(qa[: max_examples - len(out)])
         time.sleep(rate_limit_sec)
+    if blocked_count and not out:
+        # Every CIK was blocked → don't silently return 0. Raise so the
+        # caller (data pipeline) reports the real problem.
+        raise RuntimeError(
+            f"SEC EDGAR blocked all {blocked_count} CIK request(s) for "
+            f"User-Agent '{user_agent}'. SEC WAF returns 403 for UAs "
+            f"containing '+' or other non-conforming chars. Use the default "
+            f"User-Agent or supply one without '+'."
+        )
     return out[:max_examples]
 
 
