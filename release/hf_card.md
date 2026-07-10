@@ -20,7 +20,7 @@ Drop-in draft head for `vllm serve $TARGET_MODEL --speculative-config '{"method"
 ## Training
 
 - Recipe: EAGLE-3 (NeurIPS'25, Li et al.)
-- Tri-layer fusion: hidden states from layers [8, 20, 32] of $TARGET_MODEL (low/mid/high)
+- Tri-layer fusion: hidden states from layers [7, 18, 29] of $TARGET_MODEL (low/mid/high; rescaled from Qwen3-14B's [8, 20, 32] for 36 vs 40 layers)
 - Direct token prediction (not feature-level)
 - Training-time-test with horizon 4
 - DeepSpeed ZeRO-2, bf16, activation checkpointing

@@ -22,7 +22,7 @@ Drop-in draft head for `vllm serve Qwen/Qwen3-4B-Instruct-2507 --speculative-con
 - Recipe: EAGLE-3 (NeurIPS'25, Li et al.)
 - Tri-layer fusion: hidden states from layers [7, 18, 29] of Qwen/Qwen3-4B-Instruct-2507 (low/mid/high; rescaled from Qwen3-14B's [8, 20, 32] for 36 vs 40 layers)
 - Direct token prediction (not feature-level)
-- Training-time-test with horizon 5
+- Training-time-test with horizon 4
 - DeepSpeed ZeRO-2, bf16, activation checkpointing
 - Seeds: 42, 0, 1234 (≥3 independent runs)
 

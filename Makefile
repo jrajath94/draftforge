@@ -103,7 +103,7 @@ card:
 		--template release/hf_card.md \
 		--results results \
 		--head draftforge-eagle3-head \
-		--target Qwen/Qwen3-4B \
+		--target Qwen/Qwen3-4B-Instruct-2507 \
 		--out HF_CARD.md
 
 # writeup just validates that WRITEUP.md is present (it's committed, not generated).
