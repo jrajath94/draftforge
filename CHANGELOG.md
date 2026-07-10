@@ -27,6 +27,15 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
   is blocked as a bot). Adds explicit `User-Agent: DraftForge/0.1 (operator; …)`
   + regression test (`test_runpod_request_sends_user_agent`). Local gates:
   `make h100-recommend` now reaches RunPod and prints a live GPU table.
+- **`data/sources/edgar.py` SEC WAF 403 silent failure.** SEC EDGAR's
+  Cloudflare-fronted endpoint returns `HTTP 403 Forbidden` for User-Agent
+  strings containing `+` or other non-conforming chars (production hit
+  during data-pipeline pre-flight). The loader silently returned an empty
+  list — would have surfaced 24 h into a $70 training run as a 0-row
+  finance dataset. Now detects 403/429 per CIK, prints stderr warning, and
+  raises `RuntimeError` when **all** CIKs are blocked (partial blocks still
+  emit what they can). Error names the offending User-Agent so the operator
+  can fix it. Local gates: 211 tests pass, `edgar.py` coverage 89.0%.
 
 ### Added
 - **`release/make_card.py` __main__-block coverage.** The `if __name__ ==
@@ -41,6 +50,14 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
   a 10-row fail-fast troubleshooting table keyed by step order, and 5
   explicit non-negotiable guardrails (no auto-pod-create, $200 cost ceiling,
   results-pull-before-stop, `PUBLIC_KEY` vs repo URL, `--ssh-key`).
+
+### Test
+- **EDGAR WAF regression suite** (`tests/data/test_sources.py`): two new
+  tests lock the WAF-detection contract —
+  `test_load_edgar_raises_runtimeerror_when_all_ciks_blocked_by_waf`
+  (full block → `RuntimeError`) and
+  `test_load_edgar_succeeds_when_partial_ciks_blocked`
+  (subset block → emit successful CIKs without raising).
 
 ### Pending (HUMAN-OWNED)
 - _None at v1.1-cycle open. Operator Guide narrative expansion (console
