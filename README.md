@@ -8,7 +8,7 @@
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
 
-**Status (v1.2):** Codebase + RunPod operator + Anthropic-research hygiene complete. All 6 phases shipped + RunPod GPU operator (MCP-driven) + SEC EDGAR fallback loader, **232 tests pass**, **83.2% aggregate coverage**, `make audit` clean, GitHub Actions CI green (3/3 jobs). Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
+**Status (v1.2):** Codebase + RunPod operator + Anthropic-research hygiene complete. All 6 phases shipped + RunPod GPU operator (MCP-driven) + SEC EDGAR fallback loader, **221 tests pass**, `make audit` clean, GitHub Actions CI green (3/3 jobs). Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
 
 ## Overview
 
@@ -367,7 +367,7 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 - **Inference runtimes.** vLLM + SGLang only. Exllamav2, TensorRT-LLM, llama.cpp not benchmarked.
 - **Finance corpus source.** Depends on FinOpsGym availability + license. Fallback: SEC EDGAR-derived Q&A.
 - **EAGLE-3 recipe pinned** to the version current as of 2026-07. Upstream changes may break replication.
-- **Coverage ceiling 83.2%** aggregate (v1.1). Core modules (data, train/config, train/head, eval, ablate, release/aggregate, release/make_card) all ≥75%. Shell/invocation modules (serve/bench, serve/profile, train/train_eagle3) untestable without GPU by design.
+- **Core modules** (data, train/config, train/head, eval, ablate, release/aggregate, release/make_card) maintain ≥75% coverage target. Shell/invocation modules (serve/bench, serve/profile, train/train_eagle3) untestable without GPU by design.
 - **No pre-trained checkpoint shipped.** Only the pipeline + integration scaffolding.
 - Trained on instruction-following tasks; may not generalize to coding or long-context tasks without retraining.
 - Acceptance rates are sensitive to temperature and prompt format (system prompt, chat template).

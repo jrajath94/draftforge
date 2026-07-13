@@ -501,7 +501,7 @@ bash scripts/upload_hf.sh \
 
 **CI:** GitHub Actions 3-gate (`make audit`: ruff + mypy + pytest, conventional-commits via PR title check). See `.github/workflows/ci.yml`.
 
-**Aggregate coverage:** ≥ 83.2% at v1.1. Core modules (`train/`, `data/`, `ablate/`, `eval/`, `release/`) ≥ 75% per spec. `release/make_card.py` lifted 68% → 100% via `runpy`-driven `__main__` block test.
+**Coverage:** Core modules (`train/`, `data/`, `ablate/`, `eval/`, `release/`) maintain ≥ 75% target per spec. `release/make_card.py` lifted 68% → 100% via `runpy`-driven `__main__` block test.
 
 ---
 

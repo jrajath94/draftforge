@@ -33,9 +33,8 @@ community-health files (CoC, issue/PR templates, dependabot, release-drafter,
 CITATION.cff), adds a depth-agnostic `layer_indices_for_depth()` helper
 that makes the tri-layer rescale rule explicit and unit-tested, and
 documents why Qwen3.5/3.6 (hybrid Gated DeltaNet + Gated Attention) cannot
-use EAGLE-3. **232 tests pass** (up from 209 at v1.1); aggregate coverage
-**83.2%** retained; `make audit` clean; **GitHub Actions CI green (3/3
-jobs: conventional-commits, audit, coverage)**.
+use EAGLE-3. **221 tests pass** (up from 209 at v1.1); `make audit` clean;
+**GitHub Actions CI green (3/3 jobs: conventional-commits, audit, coverage)**.
 
 ### Added
 - **`.github/CODE_OF_CONDUCT.md`** — Contributor Covenant 2.1 with
