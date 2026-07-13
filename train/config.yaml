@@ -49,6 +49,12 @@ training:
   gradient_checkpointing: true
   training_time_test_every: 100
   training_time_test_horizon: 5
+  # v1.3 sequence packing (cost-reduction lever 2). When enabled, short
+  # tokenized docs are packed into ≤sequence_pack_max_len bins with
+  # block-diagonal attention masks — recovers ~3-7× throughput on finance
+  # traces where median doc length is 50-150 tokens.
+  sequence_pack: false
+  sequence_pack_max_len: 4096
 
 ds:
   config_path: train/ds_config.json

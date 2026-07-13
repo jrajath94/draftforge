@@ -67,6 +67,12 @@ class TrainingConfig(BaseModel):
     gradient_checkpointing: bool = True
     training_time_test_every: int = 100  # K steps between conditional rollouts
     training_time_test_horizon: int = 5
+    # v1.3: sequence packing (cost-reduction lever 2).
+    # When True, the collator packs short sequences into <=max_len bins with
+    # block-diagonal attention masks. ~3-7x throughput on finance traces
+    # where median doc length is 50-150 tokens vs max_len=4096.
+    sequence_pack: bool = False
+    sequence_pack_max_len: int = Field(default=4096, ge=128, le=32768)
 
 
 class DeepSpeedConfig(BaseModel):

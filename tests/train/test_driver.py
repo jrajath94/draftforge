@@ -106,7 +106,7 @@ def test_compute_loss_returns_scalar_on_stub() -> None:
     from train.train_eagle3 import compute_loss
 
     class _Head:
-        def __call__(self, input_ids: torch.Tensor) -> torch.Tensor:
+        def __call__(self, input_ids: torch.Tensor, **kwargs: Any) -> torch.Tensor:
             return torch.randn(2, 4, 5)
 
     head: Any = _Head()

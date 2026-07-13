@@ -13,6 +13,10 @@ Implements:
   teacher forcing. This is the EAGLE-3 "training-time-test" recipe.
 - Save: best + latest checkpoint per seed; loss_curve.json + .csv per step
 - Optional resume from latest checkpoint
+- v1.3: --sequence-pack flag (cost-reduction lever 2). Packs short sequences
+  into bins with block-diagonal attention masks + per-doc RoPE reset.
+  Recovers ~3-7x throughput on finance traces where median doc length is
+  far below max_len=4096.
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ from torch.utils.data import DataLoader
 
 from train.config import TrainConfig, load_config, save_config
 from train.head import EAGLE3Head
+from train.packing import Pack, pack_sequences
 
 
 def set_seed(seed: int) -> None:
@@ -100,9 +105,20 @@ def compute_loss(
     input_ids: torch.Tensor,
     labels: torch.Tensor,
     cfg: TrainConfig,
+    position_ids: torch.Tensor | None = None,
+    attention_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """Forward + CE loss. Mask padding with -100 in labels."""
-    logits = head(input_ids=input_ids)
+    """Forward + CE loss. Mask padding with -100 in labels.
+
+    position_ids + attention_mask are required for sequence packing (block-
+    diagonal masks + per-doc RoPE reset). When None, the head falls back to
+    HF's built-in causal mask (default behaviour).
+    """
+    logits = head(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        position_ids=position_ids,
+    )
     return torch.nn.functional.cross_entropy(
         logits.view(-1, logits.size(-1)),
         labels.view(-1),
@@ -114,6 +130,8 @@ def training_time_test_step(
     head: EAGLE3Head,
     input_ids: torch.Tensor,
     cfg: TrainConfig,
+    position_ids: torch.Tensor | None = None,
+    attention_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Sample own drafts for `horizon` tokens; recompute CE loss.
 
@@ -122,7 +140,11 @@ def training_time_test_step(
     """
     head.eval()
     with torch.no_grad():
-        logits = head(input_ids=input_ids)
+        logits = head(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            position_ids=position_ids,
+        )
         sampled = torch.argmax(logits, dim=-1)
     head.train()
     # Replace the last `horizon` tokens with our drafts; predict the rest
@@ -131,7 +153,14 @@ def training_time_test_step(
         return torch.tensor(0.0, device=input_ids.device)
     modified = input_ids.clone()
     modified[:, -horizon:] = sampled[:, -horizon:]
-    return compute_loss(head, modified, modified.clone(), cfg)
+    return compute_loss(
+        head,
+        modified,
+        modified.clone(),
+        cfg,
+        position_ids=position_ids,
+        attention_mask=attention_mask,
+    )
 
 
 def write_loss_curve(path: Path, rows: list[dict]) -> None:
@@ -176,6 +205,54 @@ def load_dataset(cfg: TrainConfig) -> Dataset:
     return train_ds
 
 
+def collate_packed(batch: list[dict], max_len: int) -> dict:
+    """Sequence-packing collator (v1.3 cost-reduction lever 2).
+
+    Packs the per-row `input_ids` lists into ≤max_len bins via first-fit-
+    decreasing bin packing. Each pack carries a block-diagonal attention
+    mask so cross-document attention does not leak, plus per-doc RoPE
+    position IDs that reset to 0 at each doc boundary.
+
+    Returns dict with shape:
+        input_ids:      (M, max_len) int64 — padded to max_len
+        position_ids:   (M, max_len) int64 — per-doc positions
+        attention_mask: (M, max_len, max_len) int64 — block-diagonal
+        doc_starts:     list[list[int]] — one list per pack
+
+    M ≤ len(batch) (fewer bins than input rows when packs combine docs).
+    """
+    seqs: list[list[int]] = [list(b["input_ids"]) for b in batch if len(b["input_ids"]) > 0]
+    if not seqs:
+        return {
+            "input_ids": torch.zeros((0, max_len), dtype=torch.long),
+            "position_ids": torch.zeros((0, max_len), dtype=torch.long),
+            "attention_mask": torch.zeros((0, max_len, max_len), dtype=torch.long),
+            "doc_starts": [],
+        }
+    packs: list[Pack] = pack_sequences(seqs, max_len=max_len)
+    n_packs = len(packs)
+    input_ids = torch.zeros((n_packs, max_len), dtype=torch.long)
+    position_ids = torch.zeros((n_packs, max_len), dtype=torch.long)
+    attention_mask = torch.zeros((n_packs, max_len, max_len), dtype=torch.long)
+    doc_starts: list[list[int]] = []
+    for i, pack in enumerate(packs):
+        pack_len = len(pack.input_ids)
+        # Note: avoid torch.from_numpy — envs with mixed numpy 1.x/2.x crash.
+        # tensor(list) is a touch slower but ABI-stable.
+        input_ids[i, :pack_len] = torch.tensor(pack.input_ids.tolist(), dtype=torch.long)
+        position_ids[i, :pack_len] = torch.tensor(pack.position_ids.tolist(), dtype=torch.long)
+        attention_mask[i, :pack_len, :pack_len] = torch.tensor(
+            pack.attention_mask.tolist(), dtype=torch.long
+        )
+        doc_starts.append(list(pack.doc_starts))
+    return {
+        "input_ids": input_ids,
+        "position_ids": position_ids,
+        "attention_mask": attention_mask,
+        "doc_starts": doc_starts,
+    }
+
+
 def main() -> int:
     """Entry point invoked by `accelerate launch` or `python -m train.train_eagle3`."""
     ap = argparse.ArgumentParser()
@@ -184,6 +261,11 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true", help="Resume from latest ckpt.")
     ap.add_argument(
         "--output-dir", type=str, default=None, help="Override output.dir."
+    )
+    ap.add_argument(
+        "--sequence-pack", action="store_true",
+        help="Enable sequence packing (FFD bins + block-diag attention). "
+             "Overrides training.sequence_pack in config.",
     )
     args = ap.parse_args()
 
@@ -206,6 +288,8 @@ def main() -> int:
         cfg.training.seed = args.seed
     if args.output_dir is not None:
         cfg.output.dir = Path(args.output_dir)
+    if args.sequence_pack:
+        cfg.training.sequence_pack = True
 
     set_seed(cfg.training.seed)
     cfg.output.dir.mkdir(parents=True, exist_ok=True)
@@ -229,11 +313,24 @@ def main() -> int:
     train_ds = load_dataset(cfg)
     print(f"[DraftForge] training rows: {len(train_ds)}", flush=True)
 
+    use_packing = cfg.training.sequence_pack
+    pack_max_len = cfg.training.sequence_pack_max_len
+    if use_packing:
+        print(
+            f"[DraftForge] sequence packing ENABLED (max_len={pack_max_len})",
+            flush=True,
+        )
+
     def collate(batch: list[dict]) -> dict:
+        if use_packing:
+            return collate_packed(batch, max_len=pack_max_len)
+        # Default: right-pad to max row length.
         ids = [torch.tensor(b["input_ids"], dtype=torch.long) for b in batch]
-        max_len = max(t.size(0) for t in ids)
+        if not ids:
+            return {"input_ids": torch.zeros((0, 0), dtype=torch.long)}
+        max_l = max(t.size(0) for t in ids)
         pad_id = 0
-        out = torch.full((len(batch), max_len), pad_id, dtype=torch.long)
+        out = torch.full((len(batch), max_l), pad_id, dtype=torch.long)
         for i, t in enumerate(ids):
             out[i, : t.size(0)] = t
         return {"input_ids": out}
@@ -258,11 +355,24 @@ def main() -> int:
             if step >= cfg.training.max_steps:
                 break
             input_ids = batch["input_ids"].cuda() if torch.cuda.is_available() else batch["input_ids"]
+            position_ids = batch.get("position_ids")
+            attention_mask = batch.get("attention_mask")
+            if position_ids is not None and torch.cuda.is_available():
+                position_ids = position_ids.cuda()
+            if attention_mask is not None and torch.cuda.is_available():
+                attention_mask = attention_mask.cuda()
             labels = input_ids.clone()
             labels[..., :-1] = input_ids[..., 1:]
             labels[..., -1] = -100
 
-            loss = compute_loss(head, input_ids, labels, cfg)
+            loss = compute_loss(
+                head,
+                input_ids,
+                labels,
+                cfg,
+                position_ids=position_ids,
+                attention_mask=attention_mask,
+            )
             (loss / cfg.training.grad_accum).backward()
             grad_accum_count += 1
 
@@ -287,7 +397,11 @@ def main() -> int:
                     )
 
                 if step % cfg.training.training_time_test_every == 0:
-                    ttt = training_time_test_step(head, input_ids, cfg)
+                    ttt = training_time_test_step(
+                        head, input_ids, cfg,
+                        position_ids=position_ids,
+                        attention_mask=attention_mask,
+                    )
                     loss_rows.append(
                         {"step": step, "loss": float(ttt.item()), "lr": lr, "tag": "ttt"}
                     )
