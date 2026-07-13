@@ -1,0 +1,45 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+version-resolver:
+  major:
+    labels: ["breaking"]
+  minor:
+    labels: ["feat", "enhancement"]
+  patch:
+    labels: ["fix", "bug", "docs", "refactor", "perf", "test", "ci", "chore"]
+  default: "patch"
+categories:
+  - title: "Breaking changes"
+    labels: ["breaking"]
+  - title: "Features"
+    labels: ["feat", "enhancement"]
+  - title: "Bug fixes"
+    labels: ["fix", "bug"]
+  - title: "Performance"
+    labels: ["perf"]
+  - title: "Documentation"
+    labels: ["docs"]
+  - title: "Refactors"
+    labels: ["refactor"]
+  - title: "Tests"
+    labels: ["test"]
+  - title: "CI"
+    labels: ["ci"]
+  - title: "Chores"
+    labels: ["chore", "dependencies"]
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+exclude-labels: ["skip-changelog"]
+template: |
+  ## Changes
+
+  $CHANGES
+
+  ## Contributors
+
+  $CONTRIBUTORS
+
+  ## Installation
+
+  ```bash
+  pip install draftforge==$RESOLVED_VERSION
+  ```

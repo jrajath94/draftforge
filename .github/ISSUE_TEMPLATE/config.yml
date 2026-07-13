@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions (questions, ideas)
+    url: https://github.com/jrajath94/draftforge/discussions
+    about: Ask questions or share ideas outside the issue tracker.
+  - name: Security advisory (private)
+    url: https://github.com/jrajath94/draftforge/security/advisories/new
+    about: Report security issues privately. See SECURITY.md for policy.
