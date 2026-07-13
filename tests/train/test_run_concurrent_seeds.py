@@ -86,12 +86,11 @@ def _run_runner(
 
 
 def test_three_seeds_run_in_parallel_not_serial(tmp_path: Path) -> None:
-    """3 seeds × 0.3s stub = serial 0.9s. Concurrent ≈ 0.3s + slack.
+    """3 seeds x 0.3s stub = serial 0.9s. Concurrent ~= 0.3s + slack.
 
-    Allow generous slack (≤0.6s) to avoid CI flakiness on slow runners.
-    True serial: ≥0.9s. True parallel: ≤0.6s.
+    Allow generous slack (<=0.6s) to avoid CI flakiness on slow runners.
+    True serial: >=0.9s. True parallel: <=0.6s.
     """
-    log_dir = tmp_path / "logs"
     t0 = time.monotonic()
     result = _run_runner(tmp_path, n_seeds=3, gpus="0 1 2")
     wall = time.monotonic() - t0
@@ -109,8 +108,8 @@ def test_per_seed_log_file_written(tmp_path: Path) -> None:
     logs = sorted(p.name for p in log_dir.glob("seed_*.log"))
     # Default seed list starts with (42, 123, 456).
     assert any("seed_42" in n for n in logs), f"missing seed_42 log in {logs}"
-    assert any("seed_123" in n for n in logs), f"missing seed_123 log"
-    assert any("seed_456" in n for n in logs), f"missing seed_456 log"
+    assert any("seed_123" in n for n in logs), "missing seed_123 log"
+    assert any("seed_456" in n for n in logs), "missing seed_456 log"
 
 
 def test_log_contains_seed_and_gpu_markers(tmp_path: Path) -> None:

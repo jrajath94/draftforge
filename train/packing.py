@@ -12,7 +12,7 @@ Algorithm: first-fit-decreasing (FFD, Coffman '96).
 
 Why FFD:
 - Deterministic given the same input ordering.
-- Approximation ratio ≤ 11/9 × OPT for offline bin packing.
+- Approximation ratio <= 11/9 x OPT for offline bin packing.
 - Empirically fills ~3-7% more efficiently than first-fit on realistic
   EAGLE-3 input shapes (median doc length ~80 tokens, max_len=4096).
 
@@ -26,8 +26,8 @@ Quality invariants (all pinned by tests/test_packing.py):
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 import numpy as np
 
@@ -120,14 +120,17 @@ class BinPacker:
                 self._bin_doc_ends.append([len(seq)])
 
         # 3. Build Pack objects from accumulated state.
-        return [self._build_pack(ids, ends) for ids, ends in zip(self._bin_ids, self._bin_doc_ends)]
+        return [
+            self._build_pack(ids, ends)
+            for ids, ends in zip(self._bin_ids, self._bin_doc_ends, strict=True)
+        ]
 
     def _build_pack(self, ids: list[int], doc_ends: list[int]) -> Pack:
         """Convert accumulated state for one bin into a Pack with mask + pos."""
-        L = len(ids)
+        length = len(ids)
         input_ids = np.array(ids, dtype=np.int64)
-        position_ids = np.zeros(L, dtype=np.int64)
-        attention_mask = np.zeros((L, L), dtype=np.int64)
+        position_ids = np.zeros(length, dtype=np.int64)
+        attention_mask = np.zeros((length, length), dtype=np.int64)
         doc_starts: list[int] = []
         start = 0
         for end in doc_ends:

@@ -353,7 +353,7 @@ def cmd_concurrent(args: argparse.Namespace) -> int:
     )
     cmd = [*ssh_base, payload]
     print(f"[concurrent] launching {args.n_seeds} seeds on GPUs [{args.gpus}]")
-    print(f"[concurrent] tail with: operator_runpod.py status <POD>")
+    print("[concurrent] tail with: operator_runpod.py status <POD>")
     try:
         _run(cmd, check=True, timeout=86_400)
         return 0

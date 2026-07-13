@@ -15,7 +15,6 @@ import pytest
 
 from train.packing import BinPacker, Pack, pack_sequences
 
-
 # ---- empty / degenerate ------------------------------------------------------
 
 
@@ -68,7 +67,7 @@ def test_pack_respects_max_len_capacity() -> None:
     A regressed packing that exceeds max_len would OOM the activation buffer
     on real training and either crash or silently truncate.
     """
-    seqs = [[1] * 100 for _ in range(20)]  # 20 × 100-token seqs
+    seqs = [[1] * 100 for _ in range(20)]  # 20 x 100-token seqs
     out = pack_sequences(seqs, max_len=256)
     for i, pack in enumerate(out):
         assert len(pack.input_ids) <= 256, (
@@ -147,11 +146,11 @@ def test_pack_position_ids_reset_per_doc() -> None:
     NOTE: FFD reorders by descending length, so doc boundaries in the pack
     correspond to PACK ORDER (longest first), not input order.
     """
-    # doc_A is shorter (50 tokens); doc_B is longer (60 tokens).
-    # FFD puts doc_B first; doc_A second.
-    doc_A = list(range(50))
-    doc_B = list(range(100, 160))  # 60 tokens
-    out = pack_sequences([doc_A, doc_B], max_len=200)
+    # doc_a is shorter (50 tokens); doc_b is longer (60 tokens).
+    # FFD puts doc_b first; doc_a second.
+    doc_a = list(range(50))
+    doc_b = list(range(100, 160))  # 60 tokens
+    out = pack_sequences([doc_a, doc_b], max_len=200)
     assert len(out) == 1
     starts = out[0].doc_starts
     pos = out[0].position_ids
@@ -213,7 +212,7 @@ def test_pack_doc_starts_are_zero_indexed_in_order() -> None:
 
 def test_pack_multiple_bins_when_capacity_exhausted() -> None:
     """Many short seqs that can't all fit → multiple bins."""
-    seqs = [[1] * 100 for _ in range(10)]  # 10 × 100-token seqs, max=256
+    seqs = [[1] * 100 for _ in range(10)]  # 10 x 100-token seqs, max=256
     out = pack_sequences(seqs, max_len=256)
     # Each pack holds ≤ 2 seqs (256/100 floor = 2). 10 seqs → ≥ 5 packs.
     assert len(out) >= 5
@@ -246,7 +245,7 @@ def test_pack_deterministic_for_same_input() -> None:
     a = pack_sequences(seqs, max_len=100)
     b = pack_sequences(seqs, max_len=100)
     assert len(a) == len(b)
-    for pa, pb in zip(a, b):
+    for pa, pb in zip(a, b, strict=True):
         assert pa.input_ids.tolist() == pb.input_ids.tolist()
         assert pa.doc_starts == pb.doc_starts
 

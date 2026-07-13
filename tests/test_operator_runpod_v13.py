@@ -125,7 +125,7 @@ def test_cmd_recommend_secure_tier_uses_secure_price() -> None:
 
 
 def test_recommend_table_community_includes_lower_priced_than_secure() -> None:
-    """communityPrice can be 0.5× securePrice — recommend on community tier
+    """communityPrice can be 0.5x securePrice — recommend on community tier
     surfaces the cheap option that would otherwise be filtered by secure cap.
     """
     fake_response = {"data": {"gpuTypes": [

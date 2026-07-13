@@ -134,12 +134,12 @@ def test_sigterm_trap_saves_emergency_checkpoint(tmp_path: Path) -> None:
     (run_dir / "loss_curve.csv").write_text("step,loss,lr\n0,1.0,1e-4\n", encoding="utf-8")
     (run_dir / "loss_curve.json").write_text("[]", encoding="utf-8")
 
-    probe = f"""
+    probe = """
 set -euo pipefail
-trap_save() {{
+trap_save() {
     echo TRAP_FIRED >&2
     exit 0
-}}
+}
 trap trap_save SIGTERM
 # Verify trap is registered. Buffer the builtin output first to avoid the
 # SIGPIPE-on-early-close race when `grep -q` matches mid-line of a builtin.
