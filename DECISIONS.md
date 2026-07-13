@@ -195,4 +195,4 @@ The rescale function is `round(fraction × num_hidden_layers)` for `fraction ∈
 
 ---
 
-**Last reviewed:** 2026-07-09 — git revision `80a0261` (post CODE/MEASURED split in `.planning/PROJECT.md`).
+**Last reviewed:** 2026-07-13 — git revision `87ab132` (post filter-repo history scrub + community-health + layer_indices_for_depth helper).

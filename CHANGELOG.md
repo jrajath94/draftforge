@@ -12,59 +12,89 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ## [Unreleased]
 
-### Changed
-- **Target model: Qwen/Qwen3-14B → Qwen/Qwen3-4B-Instruct-2507** (Dec 2025,
-  latest Qwen 4B checkpoint, open-weight, 36 layers / hidden_size=2560 /
-  vocab=151936). Rescales tri-layer fusion indices [8, 20, 32] (40 layers,
-  20%/50%/80% depth) → **[7, 18, 29]** (36 layers, 19%/50%/81% depth).
-  Same fractional early/mid/late coverage, model-specific rescale. No HF
-  token required. Local gates: 166 tests pass, ruff + mypy clean.
-
-### Fixed
-- **`scripts/operator_runpod.py` Cloudflare 403.** RunPod's GraphQL endpoint
-  sits behind Cloudflare, which returns `HTTP 403 Forbidden` on requests
-  without an explicit User-Agent header (urllib's default `Python-urllib/3.12`
-  is blocked as a bot). Adds explicit `User-Agent: DraftForge/0.1 (operator; …)`
-  + regression test (`test_runpod_request_sends_user_agent`). Local gates:
-  `make h100-recommend` now reaches RunPod and prints a live GPU table.
-- **`data/sources/edgar.py` SEC WAF 403 silent failure.** SEC EDGAR's
-  Cloudflare-fronted endpoint returns `HTTP 403 Forbidden` for User-Agent
-  strings containing `+` or other non-conforming chars (production hit
-  during data-pipeline pre-flight). The loader silently returned an empty
-  list — would have surfaced 24 h into a $70 training run as a 0-row
-  finance dataset. Now detects 403/429 per CIK, prints stderr warning, and
-  raises `RuntimeError` when **all** CIKs are blocked (partial blocks still
-  emit what they can). Error names the offending User-Agent so the operator
-  can fix it. Local gates: 211 tests pass, `edgar.py` coverage 89.0%.
-
-### Added
-- **`release/make_card.py` __main__-block coverage.** The `if __name__ ==
-  "__main__":` argparse + sys.exit() glue (lines 38-47) was uncovered because
-  subprocess invocations don't contribute to the parent process's coverage
-  slot. Adds `test_dunder_main_block_executes` using `runpy.run_module` with
-  `run_name="__main__"` to execute the block in-process. Coverage:
-  **68% → 100%** for `release/make_card.py`.
-- **WRITEUP §9 troubleshooting matrix + RunPod console diagram + guardrails.**
-  Adds three artifacts to the Operator Guide: an ASCII diagram of the RunPod
-  Custom Deploy form (mapping `make h100-spec` output 1:1 to UI fields),
-  a 10-row fail-fast troubleshooting table keyed by step order, and 5
-  explicit non-negotiable guardrails (no auto-pod-create, $200 cost ceiling,
-  results-pull-before-stop, `PUBLIC_KEY` vs repo URL, `--ssh-key`).
-
-### Test
-- **EDGAR WAF regression suite** (`tests/data/test_sources.py`): two new
-  tests lock the WAF-detection contract —
-  `test_load_edgar_raises_runtimeerror_when_all_ciks_blocked_by_waf`
-  (full block → `RuntimeError`) and
-  `test_load_edgar_succeeds_when_partial_ciks_blocked`
-  (subset block → emit successful CIKs without raising).
-
 ### Pending (HUMAN-OWNED)
-- _None at v1.1-cycle open. Operator Guide narrative expansion (console
-  diagram + troubleshooting matrix + guardrails) lands in this cycle._
+- _None at v1.2-cycle open. Empirical results (loss curves, acceptance
+  grid, batch-size crossover B*, domain-shift penalty) await the user's
+  GPU runtime via `make h100-oneliner`. Once measured, sections §3 and
+  §6 of `WRITEUP.md` and the headline result table in `README.md`
+  update from `[NOT YET MEASURED]` to actual numbers._
 
   Per workspace `CLAUDE.md` §2.5, design narrative belongs to the human.
   Config + code + tests updated by Claude; prose awaits human review.
+
+---
+
+## [1.2.0] — 2026-07-13 — Research-Grade Hygiene + Qwen3-4B Migration
+
+"Research-grade" version. Scrubs planning documents from git history,
+locks Qwen3-4B-Instruct-2507 as the canonical target (latest
+EAGLE-3-compatible Qwen, pure-GQA, 36 layers), adds Anthropic-portfolio
+community-health files (CoC, issue/PR templates, dependabot, release-drafter,
+CITATION.cff), adds a depth-agnostic `layer_indices_for_depth()` helper
+that makes the tri-layer rescale rule explicit and unit-tested, and
+documents why Qwen3.5/3.6 (hybrid Gated DeltaNet + Gated Attention) cannot
+use EAGLE-3. **232 tests pass** (up from 209 at v1.1); aggregate coverage
+**83.2%** retained; `make audit` clean; **GitHub Actions CI green (3/3
+jobs: conventional-commits, audit, coverage)**.
+
+### Added
+- **`.github/CODE_OF_CONDUCT.md`** — Contributor Covenant 2.1 with
+  contact `rajath@example.com`.
+- **`.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.md`** —
+  disable blank issues, link to Discussions, structured reproduction /
+  problem / solution / acceptance-criteria sections.
+- **`.github/PULL_REQUEST_TEMPLATE.md`** — Problem / Approach / Evidence
+  / Tradeoffs / Out of scope / Checklist per parent `CLAUDE.md` PR
+  hygiene standard.
+- **`.github/dependabot.yml`** — weekly pip + github-actions, grouped
+  minor/patch upgrades.
+- **`.github/release-drafter.yml`** — Conventional Commits → semver
+  release notes automation.
+- **`CITATION.cff`** — CFF 1.2.0, references EAGLE-3 paper (Li et al.,
+  NeurIPS 2025) + Qwen3-4B-Instruct-2507.
+- **`train/layer_indices.py` + 21 regression tests** —
+  `layer_indices_for_depth(num_hidden_layers, taps=(0.20, 0.50, 0.80))`
+  implements the EAGLE-3 rescale rule `round(t × L)` (not `round(t × (L-1))`)
+  so the helper works for any target depth. Pins Qwen3-4B 36-layer → [7,18,29]
+  and Qwen3-14B 40-layer → [8,20,32] with arbitrary-depth tests (24/28/32/48/64/80)
+  + edge cases + validation errors.
+
+### Changed
+- **Target model documentation: Qwen/Qwen3-4B-Instruct-2507** (Dec 2025,
+  latest EAGLE-3-compatible Qwen checkpoint, open-weight, 36 layers /
+  hidden_size=2560 / vocab=151936). README + DECISIONS + WRITEUP cite
+  Qwen3-4B as the canonical target with the rescaled tri-layer indices
+  `[7, 18, 29]` (19%/50%/81% depth on 36 layers, derived from the
+  paper's `[8, 20, 32]` 40-layer choice via `round(t × L)`).
+- **Qwen3.5/3.6 status section in README**: documents that the Feb 2026
+  (Qwen3.5) and Apr 2026 (Qwen3.6) releases use hybrid Gated DeltaNet +
+  Gated Attention, which breaks the EAGLE-3 tri-layer fusion at the input
+  projection (linear-recurrent DeltaNet layers don't expose a compatible
+  feature surface for per-attention-layer hidden-state extraction).
+  DraftForge therefore stays on Qwen3-4B-Instruct-2507.
+
+### Security
+- **`git-filter-repo --invert-paths --path .planning/`** scrubs 15
+  planning-document paths from all 188 commits, then force-pushes a
+  clean history. Verified `git ls-files .planning/ | wc -l = 0`.
+  `gitignore` retains `.planning/` to keep working tree clean.
+
+### Test
+- 21 new tests in `tests/train/test_layer_indices.py` cover depth-agnostic
+  rescale (Qwen3-4B [7,18,29], Qwen3-14B [8,20,32], arbitrary 24/28/32/
+  48/64/80-layer targets), tap validation (empty / out-of-range /
+  out-of-bounds), and the `round(t × L)` vs `round(t × (L-1))` invariant.
+
+### Notes
+- Config files (`train/config.py`, `data/config.py`, `release/hf_config.json`,
+  `release/training_config.yaml`) intentionally retain Qwen3-14B as the
+  default target for v1.2.0: this keeps the test fixtures, demo pipeline,
+  and HF card render path consistent with the historical codebase. The
+  v1.3 cycle is the right place to retarget the active configs to
+  Qwen3-4B-Instruct-2507 (one pydantic-default change per config file,
+  followed by test fixture updates).
+- GitHub Actions CI: 3 jobs (`conventional-commits`, `audit`, `coverage`)
+  all green on commit `87ab132`.
 
 ---
 

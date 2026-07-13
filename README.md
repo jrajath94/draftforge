@@ -4,11 +4,11 @@
 [![codecov](https://codecov.io/gh/jrajath94/draftforge/branch/main/graph/badge.svg)](https://codecov.io/gh/jrajath94/draftforge)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version: v1.1](https://img.shields.io/badge/version-v1.1-blue)](CHANGELOG.md)
+[![Version: v1.2](https://img.shields.io/badge/version-v1.2-blue)](CHANGELOG.md)
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
 
-**Status (v1.1):** Codebase + RunPod operator complete. All 6 phases shipped + RunPod GPU operator + SEC EDGAR fallback loader, **209 tests pass**, **83.2% aggregate coverage**, `make audit` clean. Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
+**Status (v1.2):** Codebase + RunPod operator + Anthropic-research hygiene complete. All 6 phases shipped + RunPod GPU operator (MCP-driven) + SEC EDGAR fallback loader, **232 tests pass**, **83.2% aggregate coverage**, `make audit` clean, GitHub Actions CI green (3/3 jobs). Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
 
 ## Overview
 
@@ -337,7 +337,7 @@ Alternative: A100 ($0.60/h) instead of H100 ($0.95/h) — +50% runtime, −37% c
 
 ### Design Rationale
 
-See [`.planning/DECISIONS.md`](.planning/DECISIONS.md) for the ten-question
+See [`DECISIONS.md`](DECISIONS.md) for the ten-question
 whiteboard defense (why EAGLE-3, why tri-layer, why direct-token prediction,
 why 3+ seeds, etc.).
 
