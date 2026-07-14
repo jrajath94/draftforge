@@ -1,0 +1,3 @@
+# Symlink target — the canonical CODEOWNERS lives at the repo root.
+# GitHub reads either location; the root file wins for clarity.
+

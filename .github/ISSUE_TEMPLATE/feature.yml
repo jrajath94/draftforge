@@ -1,0 +1,62 @@
+name: Feature request
+description: Propose a new capability, CLI, or analysis dimension
+title: "[feat] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What limitation or gap are you hitting? State the use case, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed solution
+      description: |
+        What you want DraftForge to do. If it requires a CLI change, sketch the
+        argparse shape. If it requires a new module, sketch its public API.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other ways you tried. Why this proposal is the right one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: |
+        Concrete checks that prove the feature works. Example:
+          - `make demo` still passes with the change
+          - New CLI flag documented in `make help` and README
+          - Coverage on the new module is at least 75%
+          - New tests pin the public API shape
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What the proposal deliberately does not do.
+    validations:
+      required: false
+
+  - type: input
+    id: effort
+    attributes:
+      label: Effort estimate
+      description: Implementation time, lines of code, upstream research required.
+      placeholder: "1 weekend, ~200 LOC, requires checking vLLM EAGLE-3 PR #"
+    validations:
+      required: false

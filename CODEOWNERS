@@ -1,0 +1,21 @@
+# CODEOWNERS — DraftForge
+# One GitHub handle per line, paths matched lazily from most-specific first.
+# Reviewers are auto-assigned when any file in the matched path changes.
+
+# Default: any change requires maintainer review
+*                           @jrajath94
+
+# Release + security-sensitive paths require explicit maintainer sign-off
+/release/                   @jrajath94
+/.github/                   @jrajath94
+/SECURITY.md                @jrajath94
+/CONTRIBUTING.md            @jrajath94
+/commitlint.config.js       @jrajath94
+
+# Per-subsystem review (one reviewer matching the rule owns the file)
+/train/                     @jrajath94
+/ablate/                    @jrajath94
+/eval/                      @jrajath94
+/data/                      @jrajath94
+/serve/                     @jrajath94
+/scripts/                   @jrajath94

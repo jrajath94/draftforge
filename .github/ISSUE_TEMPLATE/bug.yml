@@ -1,0 +1,125 @@
+name: Bug report
+description: Report something broken, wrong, or undocumented
+title: "[bug] "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences. What broke, what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: |
+        Minimal steps that trigger the bug. Include the exact command or snippet.
+        If the bug needs data, attach the smallest fixture that reproduces it.
+      placeholder: |
+        # paste the command here
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: DraftForge version
+      description: "Commit SHA or `pip show draftforge | grep Version`"
+      placeholder: "abc1234 or 1.3.0"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Darwin 25.5.0"
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU model and driver (`nvidia-smi`), if relevant
+      placeholder: "NVIDIA H100 80GB HBM3, driver 555.42"
+    validations:
+      required: false
+
+  - type: input
+    id: target-model
+    attributes:
+      label: Target model id
+      placeholder: "Qwen/Qwen3-4B-Instruct-2507"
+    validations:
+      required: false
+
+  - type: input
+    id: inference
+    attributes:
+      label: vLLM or SGLang version (if integration bug)
+      placeholder: "vllm 0.7.3"
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: |
+        What happened. Paste exact output, including stack traces.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / artifacts
+      description: |
+        Attach or link: results/manifest.json, results/train/<seed>/loss_curve.csv,
+        *.nsys-rep traces, or pytest output.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocker (cannot run make audit / make demo / any default target)
+        - High (default pipeline produces wrong output, no workaround)
+        - Medium (workaround exists, or only affects non-default paths)
+        - Low (cosmetic, docs, or non-default path)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and did not find a duplicate
+          required: true
+        - label: I can reproduce on a clean checkout (no local edits)
+          required: true
+        - label: I have not modified the commit message convention or CI workflow unless the bug is in those files
+          required: false
