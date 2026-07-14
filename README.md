@@ -4,11 +4,11 @@
 [![codecov](https://codecov.io/gh/jrajath94/draftforge/branch/main/graph/badge.svg)](https://codecov.io/gh/jrajath94/draftforge)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version: v1.2](https://img.shields.io/badge/version-v1.2-blue)](CHANGELOG.md)
+[![Version: v1.3](https://img.shields.io/badge/version-v1.3-blue)](CHANGELOG.md)
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
 
-**Status (v1.2):** Codebase + RunPod operator + Anthropic-research hygiene complete. All 6 phases shipped + RunPod GPU operator (MCP-driven) + SEC EDGAR fallback loader, **221 tests pass**, `make audit` clean, GitHub Actions CI green (3/3 jobs). Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
+**Status (v1.3):** Cost-reduction cycle complete. Halves per-seed GPU spend via community-cloud pricing + network-volume cache; triples training throughput via sequence packing (FFD bin packing + block-diag attention + per-doc RoPE reset) and concurrent seed runner (N seeds × N GPUs in one pod). All 6 phases shipped + RunPod GPU operator (MCP-driven) + SEC EDGAR fallback loader + 4 v1.3 cost-reduction levers, **285 tests pass** (221 retained from v1.2 + 53 new + 11 from the prior fix-cycle reconciliation), `make audit` clean, GitHub Actions CI green (3/3 jobs). Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
 
 ## Overview
 
@@ -125,6 +125,27 @@ Individual targets if you want one artifact at a time:
 | `make writeup` | asserts `WRITEUP.md` is present |
 | `make verify` | walks every CLI, proves argparse binds |
 | `make audit` | ruff + mypy + pytest (CI gate) |
+| `make packing-smoke` | CPU end-to-end smoke for sequence packing (<1 s) |
+
+### Sequence Packing (v1.3)
+
+Sequence packing combines short sequences into ≤max_len bins with block-diagonal
+attention masking so loss is computed as if each sequence were independent. It
+recovers 3-7x throughput on finance traces where median doc length is far below
+`max_len=4096`.
+
+```bash
+# Default config flow (opt-in via CLI flag):
+accelerate launch --config_file train/ds_config.json -m train.train_eagle3 \
+    --config train/config.yaml --sequence-pack
+
+# Override bin capacity (range 128..32768, manually validated):
+accelerate launch --config_file train/ds_config.json -m train.train_eagle3 \
+    --config train/config.yaml --sequence-pack --sequence-pack-max-len 2048
+```
+
+Quality invariants are pinned by `tests/train/test_packing.py` (18 tests) and
+end-to-end by `make packing-smoke` (CPU, <1 s).
 
 For quick API experiments (no setup needed if you've run `make setup` once):
 

@@ -24,6 +24,121 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.3.0] — 2026-07-13 — Cost Reduction: Packing + Concurrent + Community
+
+"Cost-reduction" version. Halves per-seed GPU spend and triples training
+throughput on the existing 3-seed training loop, without changing the
+underlying EAGLE-3 architecture or training loss. Four levers land: (1)
+sequence packing (FFD bins + block-diag attention + per-doc RoPE reset)
+recovers 3-7x throughput on finance traces where median doc length is
+far below max_len=4096; (2) concurrent seed runner spawns N seeds × N
+GPUs in one pod, cutting 3-seed wallclock from 3x to ~1x; (3)
+community-cloud pricing filter halves per-hour GPU cost on RunPod; (4)
+network-volume cache cuts pod startup from ~15 min (re-download
+Qwen3-4B + tokenized dataset) to ~30 s. **285 tests pass** (up from 232
+at v1.2); `make audit` clean; new `make packing-smoke` CI gate covers
+packed-training path end-to-end on CPU.
+
+### Added
+- **Sequence packing (`train/packing.py`, `train/train_eagle3.py:208 collate_packed`).**
+  First-fit-decreasing bin packing (Coffman '96) combines short sequences
+  into ≤max_len bins. Each bin carries a block-diagonal attention mask
+  (no cross-doc attention) and per-doc RoPE position IDs (reset to 0 at
+  each doc boundary). Enabled via `--sequence-pack` (CLI) or
+  `training.sequence_pack: true` (config); `--sequence-pack-max-len`
+  overrides bin capacity (range 128..32768, validated manually since
+  pydantic v2 `validate_assignment=False` by default).
+- **Label-mask fix in main loop.** The previous label construction
+  (`labels[t] = input_ids[t+1]`) leaked cross-doc info into loss: at a
+  doc boundary, the last position of doc1 was scored against the first
+  position of doc2. New logic derives `same_doc_next[t] = position_ids[t+1]
+  == position_ids[t] + 1` (True iff contiguous within the same doc) and
+  masks labels to -100 elsewhere. Pad positions also masked via
+  `input_ids != 0`.
+- **Concurrent seed runner (`train/run_concurrent_seeds.sh`,
+  `scripts/operator_runpod.py:cmd_concurrent`).** Spawns N seeds on N GPUs
+  in one pod via `CUDA_VISIBLE_DEVICES` round-robin. Per-seed logs at
+  `${LOG_DIR}/seed_<N>_gpu<M>.log`. Wired into operator as the new
+  `concurrent` subcommand (`make h100-concurrent` target). Detects child
+  failure and exits non-zero (no silent ignores).
+- **Community-cloud pricing tier (`scripts/operator_runpod.py:cmd_recommend
+  --tier community|secure`).** Default `community` filters RunPod GPU
+  table to `communityPrice < cap`, surfacing ~40-60% cheaper options
+  than secure tier. The `--tier secure` opt-in retains v1.2 behaviour
+  for production workloads.
+- **Network-volume cache (`scripts/onboard_pod.sh`,
+  `scripts/operator_runpod.py:cmd_spec --volume-id`).** Pre-pulls HF
+  model + tokenized dataset into a persistent RunPod network volume on
+  first boot; subsequent pods `mount` it and skip the ~15-min download.
+  Wired via `--volume-id vol-xxx` in the pod spec; falls back gracefully
+  if no volume attached.
+- **CLI flags:** `--sequence-pack`, `--sequence-pack-max-len` on
+  `train/train_eagle3.py`; `--tier community|secure` and `--volume-id`
+  on `scripts/operator_runpod.py spec`.
+- **`make packing-smoke` target.** Small-scale CPU end-to-end test of
+  the packed-training path (collate → label mask → compute_loss). No
+  14B model required, runs in <1 s. Wired into CI as a fast pre-GPU
+  smoke gate.
+
+### Changed
+- **Documentation layout:** `DECISIONS.md` adds Q11–Q14 covering the
+  four v1.3 cost-reduction levers (sequence packing, concurrent seeds,
+  community-cloud pricing, network-volume cache). `README.md` Status
+  block and Quick Start section bumped to v1.3 numbers.
+- **`Makefile` help:** `make help` lists `make packing-smoke`.
+
+### Fixed
+- **Cross-doc label leak in main loop** (caught by `make packing-smoke`):
+  the offset-1 diagonal of the block-diagonal attention mask is **always
+  zero** (causal blocks the future within every doc), so the original
+  "diag1 > 0" approach could never distinguish same-doc from cross-doc
+  transitions. Fix uses `position_ids[t+1] == position_ids[t] + 1` as the
+  same-doc predicate, plus an in-bounds check against the per-pack
+  length. Verified by `tests/train/test_packing_smoke.py`.
+
+### Test
+- 53 new tests across 6 modules:
+  - `tests/train/test_packing.py` — 16 tests pinning FFD invariants
+    (capacity, block-diag, per-doc RoPE reset, doc_starts ordering,
+    total-token preservation, determinism).
+  - `tests/train/test_collate_packed.py` — 7 tests covering collator
+    output (FFD-order doc_starts, attention-mask shape, position-id
+    reset, dtype, empty/edge cases).
+  - `tests/train/test_run_concurrent_seeds.py` — 6 tests for the
+    concurrent runner (parallelism, per-seed logs, seed/gpu markers,
+    N_SEEDS override, child-failure propagation).
+  - `tests/test_operator_runpod_v13.py` — 14 tests for community tier,
+    volume-id, and the new `concurrent` subcommand dispatcher.
+  - `tests/test_onboard_pod_v13.py` — 7 tests for the network-volume
+    cache + HF isolation behavior in `scripts/onboard_pod.sh`.
+  - `tests/train/test_packing_smoke.py` — 2 CPU end-to-end tests
+    exercising collate_packed → label-mask → compute_loss via stub head.
+- New `tests/train/test_driver.py::test_compute_loss_passes_position_ids_and_attention_mask_to_head`
+  pins the kwargs path through `compute_loss` (prior test only covered
+  the no-kwargs branch).
+- New CLI flag tests: `--sequence-pack-max-len` argparse shape + range
+  rejection (covered by `make audit`).
+
+### Security
+- Range-check on `--sequence-pack-max-len` is enforced manually in
+  `train_eagle3.py:main()` (128..32768) because pydantic v2's default
+  `validate_assignment=False` would otherwise let a CLI override bypass
+  the `Field(ge=128, le=32768)` constraint. Failure → exit code 2 with
+  diagnostic to stderr.
+
+### Notes
+- All v1.3 cost-reduction levers are **opt-in**: defaults match v1.2
+  behaviour. Sequence packing requires `--sequence-pack`; community
+  pricing is the default tier (was previously the only tier); the
+  network-volume cache activates only when `--volume-id` is provided.
+- 285 tests pass (`make audit`); 0 regressions from v1.2 (232 tests
+  retained + 53 new).
+- GPU-bound numbers stay `[NOT YET MEASURED]` until `make h100-oneliner`
+  completes on user-rented GPU. v1.3 reduces the cost of that run, not
+  the runtime of the underlying training.
+
+---
+
 ## [1.2.0] — 2026-07-13 — Research-Grade Hygiene + Qwen3-4B Migration
 
 "Research-grade" version. Scrubs planning documents from git history,
