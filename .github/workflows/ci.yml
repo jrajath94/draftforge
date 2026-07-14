@@ -65,7 +65,7 @@ jobs:
             --cov=train --cov=ablate --cov=serve \
             --cov=eval --cov=release --cov=data \
             --cov-report=xml:coverage.xml \
-            --cov-fail-under=60 \
+            --cov-fail-under=75 \
             -q
 
       - name: Upload coverage artifact

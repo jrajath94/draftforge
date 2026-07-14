@@ -1,0 +1,35 @@
+# Stale-issue closer — DraftForge
+# Closes issues with no activity for 30 days and PRs with no activity for 14 days.
+# Marked with "stale" label 7 days before close.
+name: stale
+
+on:
+  schedule:
+    - cron: "23 4 * * *"  # 04:23 UTC daily
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark/close stale issues
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-stale: 30
+          days-before-close: 7
+          stale-issue-label: "stale"
+          close-issue-message: "Closing after 30 days of inactivity. Reopen if still relevant."
+          stale-issue-message: "Marked stale after 30 days of inactivity. Will close in 7 days."
+          exempt-issue-labels: "pinned,security,enhancement"
+          # Pull requests
+          days-before-pr-stale: 14
+          days-before-pr-close: 7
+          stale-pr-label: "stale"
+          close-pr-message: "Closing after 14 days of inactivity. Reopen if still relevant."
+          stale-pr-message: "Marked stale after 14 days of inactivity. Will close in 7 days."
+          exempt-pr-labels: "pinned,security"
