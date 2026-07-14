@@ -267,6 +267,11 @@ def main() -> int:
         help="Enable sequence packing (FFD bins + block-diag attention). "
              "Overrides training.sequence_pack in config.",
     )
+    ap.add_argument(
+        "--sequence-pack-max-len", type=int, default=None,
+        help="Override training.sequence_pack_max_len (range 128..32768). "
+             "Implies --sequence-pack.",
+    )
     args = ap.parse_args()
 
     # Qwen3-14B is gated. Verify HF auth BEFORE config load so a missing
@@ -290,6 +295,19 @@ def main() -> int:
         cfg.output.dir = Path(args.output_dir)
     if args.sequence_pack:
         cfg.training.sequence_pack = True
+    if args.sequence_pack_max_len is not None:
+        # Manual range check: direct assignment after load_config bypasses
+        # pydantic's Field(ge=128, le=32768) validator (default
+        # validate_assignment=False in pydantic v2).
+        if not (128 <= args.sequence_pack_max_len <= 32768):
+            print(
+                f"[train] --sequence-pack-max-len must be in [128, 32768]; "
+                f"got {args.sequence_pack_max_len}",
+                file=sys.stderr,
+            )
+            return 2
+        cfg.training.sequence_pack_max_len = args.sequence_pack_max_len
+        cfg.training.sequence_pack = True  # implicit: setting max_len implies packing on
 
     set_seed(cfg.training.seed)
     cfg.output.dir.mkdir(parents=True, exist_ok=True)
@@ -361,9 +379,30 @@ def main() -> int:
                 position_ids = position_ids.cuda()
             if attention_mask is not None and torch.cuda.is_available():
                 attention_mask = attention_mask.cuda()
-            labels = input_ids.clone()
+            # Build labels with valid-position mask. Without this, the naive
+            # `labels[t] = input_ids[t+1]` shift leaks cross-doc info into loss:
+            # at a doc boundary, position N (last of doc1) gets label = position
+            # N+1 (first of doc2). Pad positions also get labels from the next
+            # real token. Both bias the loss.
+            # Valid iff: (a) input_ids[t] and input_ids[t+1] are not pad (id=0),
+            # AND (b) when packed, attention_mask[t, t+1] == 1 (same doc, causal).
+            labels = torch.full_like(input_ids, -100)
             labels[..., :-1] = input_ids[..., 1:]
             labels[..., -1] = -100
+            valid_curr = input_ids != 0
+            valid_next = torch.cat(
+                [input_ids[..., 1:] != 0, torch.zeros_like(input_ids[..., :1])], dim=-1
+            )
+            valid_label = valid_curr & valid_next
+            if attention_mask is not None:
+                # Packed path: attention_mask[t, t+1] == 1 iff same doc + causal.
+                # Reading the offset-1 diagonal gives the per-position same-doc
+                # predicate in one shot (no Python loop over pack boundaries).
+                diag1 = torch.diagonal(attention_mask, dim1=-2, dim2=-1, offset=1)
+                same_doc_next = torch.zeros_like(attention_mask[..., 0, :], dtype=torch.bool)
+                same_doc_next[..., :-1] = diag1 > 0
+                valid_label = valid_label & same_doc_next
+            labels = torch.where(valid_label, labels, torch.full_like(labels, -100))
 
             loss = compute_loss(
                 head,

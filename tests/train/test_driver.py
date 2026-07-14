@@ -115,3 +115,38 @@ def test_compute_loss_returns_scalar_on_stub() -> None:
     loss = compute_loss(head, input_ids, labels, cfg=None)  # type: ignore[arg-type]  # type: ignore[arg-type]
     assert loss.dim() == 0
     assert torch.isfinite(loss)
+
+
+def test_compute_loss_passes_position_ids_and_attention_mask_to_head() -> None:
+    """The packed-training path must propagate position_ids + attention_mask
+    to the head call. Without this, block-diagonal masking is computed but
+    never reaches the model.
+    """
+    from train.train_eagle3 import compute_loss
+
+    captured: dict[str, Any] = {}
+
+    class _RecordingHead:
+        def __call__(self, **kwargs: Any) -> torch.Tensor:
+            captured.update(kwargs)
+            # Return logits matching input shape: (B=1, L=5, V=7).
+            return torch.randn(kwargs["input_ids"].shape[0], kwargs["input_ids"].shape[1], 7)
+
+    head: Any = _RecordingHead()
+    input_ids = torch.randint(0, 7, (1, 5))
+    labels = input_ids.clone()
+    position_ids = torch.arange(5).unsqueeze(0)
+    attention_mask = torch.tril(torch.ones(5, 5, dtype=torch.long)).unsqueeze(0)
+
+    loss = compute_loss(
+        head, input_ids, labels, cfg=None,  # type: ignore[arg-type]
+        position_ids=position_ids, attention_mask=attention_mask,
+    )
+    # The head must receive all three inputs the driver promises to forward.
+    assert "input_ids" in captured
+    assert "position_ids" in captured
+    assert "attention_mask" in captured
+    torch.testing.assert_close(captured["position_ids"], position_ids)
+    torch.testing.assert_close(captured["attention_mask"], attention_mask)
+    assert loss.dim() == 0
+    assert torch.isfinite(loss)
