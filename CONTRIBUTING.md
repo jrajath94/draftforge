@@ -68,6 +68,9 @@ Tests should cover:
 - Ablation setup
 
 Use `pytest` fixtures for common setup. GPU-intensive tests marked with `@pytest.mark.slow`.
+Coverage floor:
+- Core modules (`train/`, `ablate/`, `serve/`, `eval/`, `release/`, `data/`): ≥75%
+- New modules: ≥75% (pin the public API shape with at least 3 tests)
 
 ## Hardware
 
@@ -77,7 +80,15 @@ Use `pytest` fixtures for common setup. GPU-intensive tests marked with `@pytest
 
 ## Release
 
-Releases follow [semantic versioning](https://semver.org/). Tag on `main` after phase completion.
+Releases follow [semantic versioning](https://semver.org/). Tag on `main` after
+phase completion. Tag format is `vMAJOR.MINOR.PATCH` (annotated, GPG-signed
+when possible). Each tag must:
+
+1. Pass `make audit` on the tagged commit.
+2. Have a matching `## [MAJOR.MINOR.PATCH]` entry in `CHANGELOG.md`.
+3. Update `version` in `pyproject.toml` and `CITATION.cff` if they exist.
+4. Force-push the tag is forbidden; use `git tag -d` + recreate with a
+   `-fix.N` suffix if a serious error slips through.
 
 ## Phases
 

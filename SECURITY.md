@@ -4,12 +4,14 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 1.3.x   | :white_check_mark: |
+| 1.2.x   | :white_check_mark: |
+| 1.1.x   | :white_check_mark: |
+| < 1.1   | :x:                |
 
-DraftForge v0.1 is the first tagged release. Pre-0.1 development commits are
-not security-supported — they live on `main` for reproducibility and may be
-force-pushed.
+DraftForge v1.3 is the current released line. v1.0 (initial scaffold),
+v1.1, and v1.2 receive security backports on request. Tags are immutable;
+force-pushes to a released tag are forbidden.
 
 ## Reporting a Vulnerability
 
