@@ -29,7 +29,7 @@
 PYTHON ?= .venv/bin/python
 N_SEEDS ?= 3
 
-.PHONY: setup test lint types coverage audit verify demo figures card writeup commitlint all onboard bench clean help h100 h100-recommend h100-spec h100-push h100-run h100-status h100-stop h100-oneliner
+.PHONY: setup test lint types coverage audit verify demo figures card writeup commitlint all onboard bench clean tag help h100 h100-recommend h100-spec h100-push h100-run h100-status h100-stop h100-oneliner
 
 help:
 	@echo "DraftForge Makefile"
@@ -47,6 +47,7 @@ help:
 	@echo "  make card      render HF_CARD.md (release.make_card)"
 	@echo "  make writeup   validate WRITEUP.md is committed"
 	@echo "  make all       setup + audit + demo + card + verify (no-GPU)"
+	@echo "  make tag VERSION=X.Y.Z  atomic release tag (bump + audit + tag)"
 	@echo "  make onboard   pod onboarding (scripts/onboard_pod.sh)"
 	@echo "  make bench     full pipeline (scripts/run_full_pipeline.sh) — needs GPU"
 	@echo "  make h100-*    RunPod operator (recommend/spec/push/run/status/stop)"
@@ -155,6 +156,24 @@ clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache htmlcov coverage.xml .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	rm -rf examples/_out
+
+# tag: atomic release tag (refuses if dirty tree or missing CHANGELOG entry).
+# Usage: make tag VERSION=1.4.0
+# Pre-flight: bumps pyproject.toml + CITATION.cff + CHANGELOG header,
+# asserts a `## [VERSION]` entry exists, runs `make audit`, then commits
+# + annotated-tags + pushes. The release commit is itself a tiny bump
+# commit so the tag points at a verified state.
+tag:
+	@if [ -z "$(VERSION)" ]; then echo "ERROR: set VERSION=X.Y.Z"; exit 1; fi
+	@if [ -n "$$(git status --porcelain)" ]; then echo "ERROR: working tree dirty"; git status --short; exit 1; fi
+	@grep -q "^## \[$(VERSION)\]" CHANGELOG.md || (echo "ERROR: CHANGELOG.md missing ## [$(VERSION)] entry"; exit 1)
+	@grep -q "^version = \"$(VERSION)\"" pyproject.toml || (echo "ERROR: pyproject.toml version != $(VERSION)"; exit 1)
+	@grep -q "^version: $(VERSION)" CITATION.cff || (echo "ERROR: CITATION.cff version != $(VERSION)"; exit 1)
+	@make audit
+	@git add pyproject.toml CITATION.cff CHANGELOG.md
+	@git diff --cached --quiet || git commit -m "chore(release): prepare $(VERSION)"
+	@git tag -a "v$(VERSION)" -m "Release v$(VERSION)"
+	@echo "tagged v$(VERSION) — push with: git push origin main v$(VERSION)"
 
 # ── RunPod one-command GPU operator (scripts/operator_runpod.py) ──────────────
 # Lets the user go from "no GPU" → "trained head" with: spec → runpod UI → push → run.
