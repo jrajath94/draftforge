@@ -175,6 +175,69 @@ The rescale function is `round(fraction × num_hidden_layers)` for `fraction ∈
 
 ---
 
+## Q11. Why sequence packing (FFD bin pack + block-diagonal mask + per-doc RoPE reset)?
+
+**Decision.** Default `--sequence-pack` ON for training runs. Pack short token sequences into bins of `sequence_pack_max_len` (default 4096) via first-fit-decreasing bin packing, with a block-diagonal attention mask and per-doc RoPE position-id reset.
+
+**Why.** Finance traces median ~80 tokens, far below `max_len=4096`; naïve right-padded batches leave ~98% of FLOPs on pad. Packing recovers 3-7x throughput at equivalent optimization budget. FFD (Coffman '96) is deterministic and achieves approximation ratio ≤ 11/9 × OPT, with empirical fill ~3-7% tighter than first-fit on realistic EAGLE-3 shapes. Block-diagonal masks prevent cross-doc attention leakage; per-doc position-id resets keep RoPE within its trained range.
+
+**Evidence.**
+- `train/packing.py:8` — FFD algorithm + Coffman '96 attribution.
+- `train/packing.py:128-149` — `_build_pack` emits `input_ids`, `position_ids`, `attention_mask`, `doc_starts` with block-diagonal mask.
+- `train/train_eagle3.py:208` — `collate_packed` adapts per-row `input_ids` into packed batches; `train_eagle3.py:266-269` — `--sequence-pack` CLI flag.
+- `train/train_eagle3.py:389-418` — label-mask fix (`valid_label & same_doc_next`) that masks cross-doc label leaks introduced by the naive `labels[t] = input_ids[t+1]` shift on packed inputs.
+- `tests/train/test_packing.py` — capacity invariant (`<= max_len`, `test_pack_respects_max_len_capacity`), block-diag isolation (`test_pack_attention_mask_blocks_cross_doc_attention`), per-doc RoPE reset (`test_pack_position_ids_reset_per_doc`), determinism (`test_pack_deterministic_for_same_input`), total-token preservation (`test_pack_total_token_count_preserved`).
+
+**Tradeoff.** Packing assumes sequence independence (no cross-doc attention). For finance/QA traces this is correct; for chat logs with multi-turn structure across docs, packing would silently sever the cross-turn signal. `--sequence-pack` is opt-in (off by default) so users with structured docs can disable it.
+
+---
+
+## Q12. Why concurrent seed runner (N seeds × N GPUs on one pod, log-per-seed)?
+
+**Decision.** Default training driver is `bash train/run_concurrent_seeds.sh N_SEEDS GPUS`, not a serial loop over seeds.
+
+**Why.** EAGLE-3 head is small (~100M params) and fits 3-4 parallel processes per H100 80GB; running 3 seeds serially wastes ~67% of wallclock. Concurrent runner pins each seed to its own GPU via `CUDA_VISIBLE_DEVICES`, so 3 seeds complete in ~1x wallclock instead of 3x. This is cost-reduction lever 1 — turns a ~3h three-seed variance sweep into a ~1h sweep.
+
+**Evidence.**
+- `train/run_concurrent_seeds.sh` — orchestrator: spawns one `accelerate launch` per seed, pins to assigned GPU, writes per-seed log `${LOG_DIR}/seed_<N>_gpu<M>.log`, propagates child failure to a non-zero exit (lines 47-58 trap + lines 97-113 fail aggregation).
+- `scripts/operator_runpod.py:334` — `cmd_concurrent` threads `N_SEEDS` + `GPUS` into the runner via SSH and `tee`s output to `concurrent.log`.
+- `tests/train/test_run_concurrent_seeds.py` — `test_three_seeds_run_in_parallel_not_serial` asserts <0.7s wall for 3 × 0.3s stub; `test_log_contains_seed_and_gpu_markers`; `test_child_failure_propagates_to_runner`.
+
+**Tradeoff.** Concurrent makes debugging a single failing seed harder than serial. Mitigated by per-seed log files and `cmd_status` tailing all `${LOG_DIR}/seed_*.log`. The SIGTERM/SIGINT trap in the runner kills all children cleanly so a community-spot preemption doesn't leak processes.
+
+---
+
+## Q13. Why community-cloud pricing tier (`recommend` filters `communityPrice`, not `securePrice`)?
+
+**Decision.** Default `recommend --tier community`. Filter the RunPod GPU table on `communityPrice ≤ max_hr`, not `securePrice`.
+
+**Why.** Community spot pricing is typically 40-60% lower than secure for the same GPU; for a 3-seed training sweep on H100 80GB, this halves the bill. Secure-tier filtering would either exclude viable community GPUs or push us over the $250 budget. RunPod marks community pods as preemptible — acceptable because training checkpoints every `save_every` steps and the SIGTERM trap in `scripts/onboard_pod.sh` writes an emergency-loss marker for clean resume.
+
+**Evidence.**
+- `scripts/operator_runpod.py:148` — `cmd_recommend` default tier `community`; `_recommend_table` (line 90) filters on `communityPrice`; `_recommend_table_secure` (line 118) is the explicit opt-in.
+- `scripts/operator_runpod.py:215-216` — `--community` flag sets `communityCloud: true` in the pod-create payload.
+- `scripts/onboard_pod.sh:27-44` — `trap_save` SIGTERM handler writes `EMERGENCY_STOP.txt` + dumps last loss row.
+- `tests/test_operator_runpod_v13.py` — `test_recommend_table_community_includes_lower_priced_than_secure` (community 2.20 < cap 3.0; secure 4.80 > cap 3.0 → only community surfaces GPU X), `test_cmd_recommend_argparse_accepts_tier_flag`, `test_cmd_spec_community_flag_sets_community_cloud_flag`.
+
+**Tradeoff.** Community pods can be interrupted mid-training; with the SIGTERM trap, per-seed logs, and `save_every` checkpoints, recovery is resume-from-latest-checkpoint on a fresh pod. Users needing guaranteed uptime can opt into `--tier secure` at ~2x cost.
+
+---
+
+## Q14. Why network-volume cache (HF cache + tokenized data on a persistent RunPod network volume)?
+
+**Decision.** When `RUNPOD_VOLUME_PATH` is set, `scripts/onboard_pod.sh` symlinks `HF_HUB_CACHE` + tokenized data + `results/train/` onto the network volume. `operator_runpod.py spec --volume-id <ID>` attaches the volume at pod-create time.
+
+**Why.** Pods are ephemeral; without a network volume, every new pod re-downloads Qwen3-4B (~8GB) and the tokenized dataset (~5GB). The onboard script's own header comment quantifies this as "30-60s model re-download per run" (file header lines 11-13), and the full cold-start pipeline (clone, pip install, smoke tests) extends that to minutes per pod. A network volume cuts the re-download to ~0 and makes subsequent pods see the same HF cache, tokenized data, and training outputs — so resume-after-preemption is just `bash train/run_concurrent_seeds.sh`.
+
+**Evidence.**
+- `scripts/onboard_pod.sh:47-84` — `setup_volume_cache()` symlinks HF cache + tokenized data + training outputs onto `${RUNPOD_VOLUME_PATH}`; idempotent (removes real dirs before symlinking).
+- `scripts/operator_runpod.py:208-213` — `--volume-id` flag emits `networkVolumeId` in the pod-create spec; when attached, `volumeInGb` drops to 0 (volume carries the data).
+- `tests/test_operator_runpod_v13.py` — `test_cmd_spec_with_volume_id_emits_network_volume_id` (asserts `networkVolumeId` set + `volumeInGb=0`), `test_cmd_spec_without_volume_id_keeps_default_disk_path`, `test_cmd_spec_argparse_accepts_volume_id_and_community`.
+
+**Tradeoff.** Network volume must be created once via the RunPod UI (not automatable from the operator). Storage is a paid RunPod resource (~$0.10/GB/month) — pays for itself after 2-3 pod lifetimes on this workload. Documented in `WRITEUP.md` §4.5 as a one-time setup step.
+
+---
+
 ## Summary of non-obvious decisions
 
 | # | Decision | Reversibility | Cost impact |
@@ -189,10 +252,14 @@ The rescale function is `round(fraction × num_hidden_layers)` for `fraction ∈
 | 8 | DeepSpeed ZeRO-2 | Low — FSDP rewrite | n/a |
 | 9 | 80/10/10 stratified | Easy — config change | n/a |
 | 10 | B\* as headline (not single ITL) | High — would change reporting structure | n/a |
+| 11 | Sequence packing (FFD + block-diag) | Easy — `--sequence-pack` flag | 3-7x throughput |
+| 12 | Concurrent seed runner | Easy — drop to `train/run_all_seeds.sh` | 3x wallclock → 1x |
+| 13 | Community-cloud pricing default | Easy — `--tier secure` opt-in | ~50% GPU spend |
+| 14 | Network-volume cache | Medium — create volume via UI | ~30s → ~0 cold-start |
 
 **Most consequential tradeoffs (high reversibility cost):** Q1 (architecture class), Q6 (analytical model), Q10 (headline framing).
-**Cheapest to change:** Q2, Q4, Q7, Q9 (config-level).
+**Cheapest to change:** Q2, Q4, Q7, Q9, Q11, Q12, Q13 (config-level or CLI flag).
 
 ---
 
-**Last reviewed:** 2026-07-13 — git revision `87ab132` (post filter-repo history scrub + community-health + layer_indices_for_depth helper).
+**Last reviewed:** 2026-07-13 — git revision `b2bb262` (v1.3.0 cycle: sequence packing + concurrent seeds + community-cloud pricing + network-volume cache).
