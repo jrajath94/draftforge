@@ -1,0 +1,29 @@
+# EditorConfig — DraftForge
+# Cross-editor consistency; most editors respect this automatically.
+# See https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{py,sh,js,toml,yaml,yml,json,md}]
+indent_size = 4
+
+[*.{md,mdx}]
+trim_trailing_whitespace = false  # Markdown two-space line breaks
+
+[*.{yml,yaml}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+indent_size = 4
+
+[*.{csv,json}]
+insert_final_newline = true
+trim_trailing_whitespace = true

@@ -1,0 +1,45 @@
+# .gitattributes — DraftForge
+# Cross-platform line endings + GitHub linguist overrides.
+
+# Auto-detect text vs binary (default), normalize EOL for source files
+*               text=auto eol=lf
+
+# Source: enforce LF
+*.py            text eol=lf
+*.sh            text eol=lf
+*.toml          text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.json          text eol=lf
+*.md            text eol=lf
+*.mdx           text eol=lf
+*.js            text eol=lf
+*.css           text eol=lf
+*.html          text eol=lf
+*.sql           text eol=lf
+
+# Generated or large binary artifacts: do NOT diff
+*.safetensors   binary
+*.pt            binary
+*.bin           binary
+*.pkl           binary
+*.nsys-rep      binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.pdf           binary
+*.zip           binary
+*.tar.gz        binary
+*.whl           binary
+
+# GitHub linguist: classify Makefile, shell, YAML as what they are
+Makefile        linguist-detectable=true
+*.sh            linguist-detectable=true
+*.yaml          linguist-detectable=true
+*.yml           linguist-detectable=true
+
+# Suppress linguist noise in coverage / placeholder
+release/head.placeholder.safetensors linguist-generated=true
+coverage.xml    linguist-generated=true
+CHANGELOG.md    linguist-generated=true
