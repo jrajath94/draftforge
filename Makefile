@@ -39,6 +39,7 @@ help:
 	@echo "  make types     mypy"
 	@echo "  make coverage  pytest + coverage report"
 	@echo "  make audit     lint + types + test (CI gate)"
+	@echo "  make packing-smoke  small-scale CPU smoke for sequence packing"
 	@echo "  make verify    bash scripts/verify.sh (every CLI binds)"
 	@echo "  make demo      local CPU pipeline (scripts/run_demo.py)"
 	@echo "  make figures   regenerate plots (eval/plot.py via demo)"
@@ -105,6 +106,13 @@ card:
 		--head draftforge-eagle3-head \
 		--target Qwen/Qwen3-4B-Instruct-2507 \
 		--out HF_CARD.md
+
+# packing-smoke: small-scale CPU smoke for sequence packing. Exercises the
+# full packed-training path (collate → label mask → compute_loss) with a
+# stub head. Confirms block-diag mask, per-doc RoPE reset, and label-mask
+# leak fix work end-to-end before any GPU run.
+packing-smoke:
+	$(PYTHON) -m pytest tests/train/test_packing_smoke.py -v --no-header
 
 # writeup just validates that WRITEUP.md is present (it's committed, not generated).
 writeup:
