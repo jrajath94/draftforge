@@ -29,7 +29,7 @@
 PYTHON ?= .venv/bin/python
 N_SEEDS ?= 3
 
-.PHONY: setup test lint types coverage audit verify demo figures card writeup all onboard bench clean help h100 h100-recommend h100-spec h100-push h100-run h100-status h100-stop h100-oneliner
+.PHONY: setup test lint types coverage audit verify demo figures card writeup commitlint all onboard bench clean help h100 h100-recommend h100-spec h100-push h100-run h100-status h100-stop h100-oneliner
 
 help:
 	@echo "DraftForge Makefile"
@@ -39,6 +39,7 @@ help:
 	@echo "  make types     mypy"
 	@echo "  make coverage  pytest + coverage report"
 	@echo "  make audit     lint + types + test (CI gate)"
+	@echo "  make commitlint  validate HEAD commit subject against commitlint.config.js"
 	@echo "  make packing-smoke  small-scale CPU smoke for sequence packing"
 	@echo "  make verify    bash scripts/verify.sh (every CLI binds)"
 	@echo "  make demo      local CPU pipeline (scripts/run_demo.py)"
@@ -78,6 +79,19 @@ coverage:
 
 audit: lint types test
 	@echo "audit OK — safe to commit"
+
+# commitlint validates the most recent commit subject against the
+# @commitlint/config-conventional rules in commitlint.config.js
+# (72-char max, lower-case type, no trailing period, conventional type).
+# Pre-commit: install husky + commitlint npm packages, wire commit-msg hook.
+# Until then, run `make commitlint` manually before each commit.
+commitlint:
+	@if command -v commitlint >/dev/null 2>&1; then \
+		commitlint --from=HEAD~1 --to=HEAD --config commitlint.config.js || \
+			(echo "[commitlint] HEAD commit violates rules in commitlint.config.js"; exit 1); \
+	else \
+		echo "[commitlint] npx commitlint not installed — skipping (run: npm i -D @commitlint/cli @commitlint/config-conventional)"; \
+	fi
 
 verify:
 	bash scripts/verify.sh
