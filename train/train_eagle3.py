@@ -394,13 +394,26 @@ def main() -> int:
                 [input_ids[..., 1:] != 0, torch.zeros_like(input_ids[..., :1])], dim=-1
             )
             valid_label = valid_curr & valid_next
-            if attention_mask is not None:
-                # Packed path: attention_mask[t, t+1] == 1 iff same doc + causal.
-                # Reading the offset-1 diagonal gives the per-position same-doc
-                # predicate in one shot (no Python loop over pack boundaries).
-                diag1 = torch.diagonal(attention_mask, dim1=-2, dim2=-1, offset=1)
-                same_doc_next = torch.zeros_like(attention_mask[..., 0, :], dtype=torch.bool)
-                same_doc_next[..., :-1] = diag1 > 0
+            if attention_mask is not None and position_ids is not None:
+                # Packed path: predict t+1 only when t and t+1 are in the same
+                # doc. Block-diag mask is lower-triangular-causal (mask[t,t+1]=0
+                # for ALL t, including intra-doc), so the offset-1 diagonal
+                # cannot distinguish same-doc from cross-doc. position_ids are
+                # the right signal: they reset to 0 at each doc boundary, so
+                # `position_ids[t+1] == position_ids[t] + 1` is True iff the
+                # two positions are contiguous within the same doc.
+                pos_next = torch.cat(
+                    [position_ids[..., 1:], torch.full_like(position_ids[..., :1], -1)],
+                    dim=-1,
+                )
+                same_doc_next = pos_next == position_ids + 1
+                # Also require t+1 < pack_len (not predicting into pad).
+                pack_lens = (input_ids != 0).sum(dim=-1)  # (B,)
+                in_bounds = (
+                    torch.arange(input_ids.size(-1), device=input_ids.device)[None, :]
+                    < pack_lens[:, None]
+                )
+                same_doc_next = same_doc_next & in_bounds
                 valid_label = valid_label & same_doc_next
             labels = torch.where(valid_label, labels, torch.full_like(labels, -100))
 
