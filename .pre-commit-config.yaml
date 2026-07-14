@@ -1,0 +1,53 @@
+# Pre-commit hook chain — DraftForge
+# Install:
+#   pip install pre-commit
+#   pre-commit install
+# Run on demand:
+#   pre-commit run --all-files
+# Bypass (rare; emergency hotfix):
+#   git commit --no-verify
+#
+# Hooks mirror CI exactly: ruff, ruff-format, mypy fail-loud, commitlint.
+# A pre-commit failure blocks the commit — no exceptions.
+
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]  # 1 MiB cap on staged additions
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^(train|ablate|serve|eval|release|data)/.*\.py$
+        args: ["--config-file=pyproject.toml"]
+        additional_dependencies: ["types-PyYAML"]
+
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.18.0
+    hooks:
+      - id: commitlint
+        files: "^.*\\.git/COMMIT_EDITMSG$"
+        args: ["--config", "commitlint.config.js"]
