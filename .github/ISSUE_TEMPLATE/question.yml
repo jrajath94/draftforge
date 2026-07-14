@@ -1,0 +1,33 @@
+name: Question
+description: Ask how to do something, not report a bug or request a feature
+title: "[question] "
+labels: ["question"]
+assignees: []
+
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: |
+        One or two sentences. Link to relevant code, docs, or a prior issue/discussion
+        if you have one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: |
+        What you tried, what you expected, what happened instead. Snippets > prose.
+    validations:
+      required: false
+
+  - type: textarea
+    id: reproducibility
+    attributes:
+      label: Reproduction (if any)
+      description: Minimal code or command that triggered the question.
+    validations:
+      required: false

@@ -1,0 +1,52 @@
+name: Docs
+description: Propose a change to README, WRITEUP, DECISIONS, or any doc
+title: "[docs] "
+labels: ["docs"]
+assignees: []
+
+body:
+  - type: dropdown
+    id: doc
+    attributes:
+      label: Which doc?
+      options:
+        - README.md
+        - WRITEUP.md
+        - DECISIONS.md
+        - CONTRIBUTING.md
+        - SECURITY.md
+        - CHANGELOG.md
+        - HF_CARD.md
+        - Other (specify in description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: gap
+    attributes:
+      label: What's wrong or missing?
+      description: |
+        Cite the paragraph / line / section. Be specific so the author can find it
+        without scanning the whole file.
+      placeholder: "WRITEUP.md §6.2 says X but the README quickstart shows Y."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed wording (or a sketch)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocker (incorrect claim or missing safety warning)
+        - High (misleading, will steer readers wrong)
+        - Medium (unclear, but readers can work around)
+        - Low (cosmetic, polish, copy edit)
+    validations:
+      required: true
