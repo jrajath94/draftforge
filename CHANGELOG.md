@@ -139,6 +139,108 @@ packed-training path end-to-end on CPU.
 
 ---
 
+## [1.4.0] — 2026-07-15 — Release Hygiene + Developer Experience
+
+Retroactive release label for the 13 commits that landed on `main` after
+the v1.3.0 tag but before this release. No model / training / runtime
+code changes — pure release-infrastructure + dev-experience hardening so
+the next v1.5.0 cycle ships faster and more safely. **285 tests pass**
+unchanged from v1.3.0; `ruff check .` and `mypy --strict` clean; the
+new `tests/release/test_release_consistency.py` pins pyproject ↔ CHANGELOG
+↔ git-tag alignment so this drift cannot recur.
+
+### Added
+
+- **`py.typed` marker** (`pyproject.toml` `include = ["py.typed"]`,
+  `b0908fb`): PEP 561 conformance so downstream tools (mypy, ruff, IDE
+  language servers) honour DraftForge's inline type hints instead of
+  treating the package as untyped.
+- **Pre-commit hook chain** (`.pre-commit-config.yaml`, `c00a4ca`):
+  ruff + ruff-format + mypy + commitlint run on every local commit.
+  Catches lint/type/subject-length violations before they hit CI.
+- **Commitlint CI gate + `make commitlint`** (`.github/workflows/ci.yml`
+  + `Makefile`, `a6c117b`): enforces Conventional Commits with ≤72-char
+  subjects on every PR + push. `make commitlint` runs the same check
+  locally. Required for the new `BRANCH_PROTECTION.md` rules.
+- **`make tag VERSION=X.Y.Z` atomic release target** (`Makefile`,
+  `d9c0c94`): one command runs `ruff check && mypy . && pytest`,
+  validates the CHANGELOG has the new version, bumps `pyproject.toml`,
+  commits, and tags — all idempotent on re-run.
+- **CodeQL workflow** (`.github/workflows/codeql.yml`, `ee422f7`):
+  GitHub-native security scanning on every push + weekly schedule.
+  Simplified in `f2b1bef` to job-level perms + single-language matrix
+  per Anthropic-tier action-permissions guidance.
+- **Stale workflow** (`.github/workflows/stale.yml`, `ee422f7`):
+  auto-closes inactive issues + PRs after the configured dormancy
+  window. Keeps the issue tracker readable for human maintainers.
+- **Structured issue templates** (`.github/ISSUE_TEMPLATE/question.yml`,
+  `3570d7f`): two new templates — `question.yml` (Q&A / support) and
+  `docs.yml` (docs-only fixes) — supplement the pre-existing
+  `bug.yml` + `feature.yml`.
+- **`BRANCH_PROTECTION.md` required-rules playbook**
+  (`docs/BRANCH_PROTECTION.md`, `a362f44`): docs-only playbook for
+  repo admins — exactly which GitHub branch-protection rules to enable
+  for `main` so CI gates cannot be bypassed by direct push.
+- **`tests/release/test_release_consistency.py`** (this release):
+  pins pyproject ↔ CHANGELOG ↔ git-tag alignment. Catches the exact
+  drift that motivated this v1.4.0 release (CHANGELOG v1.3.0 had been
+  shipped but 13 follow-up commits landed on `main` without a tag).
+
+### Changed
+
+- **Coverage fail-under gate raised to 75%** (`pyproject.toml`
+  `[tool.coverage.*]`, `b0908fb` + `ee422f7`): was implicit in CI but
+  not pinned. Now enforced as the floor for both local `pytest` and
+  the CI run.
+- **`CITATION.cff` re-aligned to release tag** (`CITATION.cff`,
+  `2ac63a2`): prior drift — the v1.3.0 release had CITATION pinned at
+  v1.2.x. Now bumped to v1.4.0 here so Zenodo / HF / GitHub citation
+  metadata matches the actual tag.
+
+### CI
+
+- **CodeQL workflow simplified** (`.github/workflows/codeql.yml`,
+  `f2b1bef`): job-level `permissions:` block + single-language matrix
+  per Anthropic-tier action-permissions guidance. Smaller attack
+  surface; same coverage.
+- **Pre-commit chain integration** (`c00a4ca`): local hook chain
+  enforces ruff / mypy / commitlint before commit; CI workflow runs the
+  same checks on push + PR. Defence in depth.
+- **Coverage gate at 75%** (`ee422f7`): enforced on every CI run.
+
+### Chore
+
+- **`.editorconfig` + `.gitattributes`** (`2d837e2`): cross-platform
+  editor consistency (tabs vs spaces, line endings, final newline)
+  + Git behaviour (linguist attributes, export-subst, diff driver).
+- **CODEOWNERS + yml issue templates** (`2a7a48e`): Anthropic-tier
+  repo-standard files for ownership routing + structured intake.
+
+### Docs
+
+- **`SECURITY.md` + `CONTRIBUTING.md` refreshed** (`a5e29de`):
+  versions, supported-commit-types, and the new pre-commit + commitlint
+  workflow documented. SECURITY policy references the CodeQL + Dependabot
+  automation.
+
+### Notes
+
+- **No code logic changed** vs v1.3.0. The 13 commits are all release
+  infrastructure (CI workflows, pre-commit, tags, version files,
+  docs). DraftForge's training pipeline, EAGLE-3 model, data loaders,
+  eval harness, and `Makefile` cost-reduction levers are byte-identical
+  to v1.3.0.
+- 285 tests pass (unchanged from v1.3.0); `ruff check .` clean;
+  `mypy --strict` clean.
+- The `make audit` + `make packing-smoke` + `make h100-oneliner` CI
+  gates from v1.3.0 are unchanged. The new gates (commitlint, CodeQL,
+  pre-commit, release-consistency) are additive.
+- Per workspace `CLAUDE.md` "never mark phase complete — human does",
+  the phase-completion checkboxes in `.planning/REQUIREMENTS.md` remain
+  unchecked until you review the diff and sign off.
+
+---
+
 ## [1.2.0] — 2026-07-13 — Research-Grade Hygiene + Qwen3-4B Migration
 
 "Research-grade" version. Scrubs planning documents from git history,
