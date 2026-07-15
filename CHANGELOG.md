@@ -139,6 +139,50 @@ packed-training path end-to-end on CPU.
 
 ---
 
+## [1.4.1] — 2026-07-15 — Patch: GitHub Release page + release-provenance suite
+
+Patch-level bump on top of the v1.4.0 retro-labeled seal. v1.4.0
+shipped the 13-commit Release Hygiene + Developer Experience deliverable
+but did not publish a GitHub Release page; `gh release list` returned
+`[]` before this release. v1.4.1 closes that gap **and** adds a
+second release-test layer — the **provenance suite** — that pins the
+branch topology behind a release (peel, ancestor, remote-publish,
+heading-shape). No model / training / runtime code changes vs v1.4.0.
+
+### Added
+
+- **`tests/release/test_release_provenance.py`** (9 invariants): pins
+  what a contributor sees by default checks out is what the
+  `pyproject.toml` + `CHANGELOG.md` + git-tag claim. Five top-level
+  invariants plus two `TestChangelogHeadingShape` invariants plus two
+  `TestSkipOnPrEnforced` decorator-self-tests. See
+  `release-notes-v1.4.1.md` for the per-test contract.
+- **`release-notes-v1.4.1.md`** — body file for `gh release create
+  v1.4.1`. Mirrors the AgentSLA v1.0.1 release-notes template
+  (highlights → quality gates → honesty notes → reproducer). The
+  first GH Release page this repo has shipped.
+
+### Notes
+
+- **All 9 provenance invariants are GREEN on first run** because the
+  contracts they pin were already honored at v1.4.0's retro-label
+  commit. Per workspace `CLAUDE.md §2.5`, that is the honest framing:
+  invariants were written *to detect future drift*, not to manufacture
+  RED→GREEN theatre.
+- **GitHub Release pages for v1.0–v1.3 remain absent.** DraftForge's
+  prior releases predate the `gh release create` workflow adopted at
+  v1.4.1. A v1.4.0 backfill release page is queued for the next cycle.
+- **`CITATION.cff date-released` still reads `2026-07-13`** (per
+  v1.3.0 cutoff work). Zenodo's release-date field is intentionally
+  dated to the underlying work's milestone rather than the
+  release-label date; leave as-is unless paired with the v1.4.0
+  backfill.
+- **297 tests pass** (288 prior → 297 with the +9 provenance suite).
+  All test modules unchanged in behavior; the 9 tests pin contracts
+  that were already implicit.
+
+---
+
 ## [1.4.0] — 2026-07-15 — Release Hygiene + Developer Experience
 
 Retroactive release label for the 13 commits that landed on `main` after
