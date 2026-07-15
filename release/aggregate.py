@@ -13,14 +13,14 @@ import csv
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def _read_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
+        return cast("dict[str, Any]", json.load(f))
 
 
 def _read_csv_loss(path: Path) -> list[dict[str, float]]:
