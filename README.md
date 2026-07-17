@@ -271,9 +271,21 @@ Expected artifacts:
 - `artifacts/data/results/data/dedup_counts.json`
 - `artifacts/data/results/data/domain_distribution.png`
 
-### Full Pipeline (GPU, ~24h, ~$200–250)
+Run the full CPU gate (rung 1, $0) before renting any GPU: the pytest suite,
+`python scripts/run_demo.py --results-root results/demo`, and (optionally)
+Ollama for qualitative finance-prompt sanity (`ollama run qwen3:8b "Explain
+EBITDA margin in one sentence."`). Ollama is a prompt sanity check only — it
+is NOT a substitute for EAGLE-3 hidden-state training, and Ollama timings are
+NOT acceptance/ITL evidence.
 
-#### 1. Data Pipeline (1 h, ~$6)
+### Full Pipeline (GPU, optimized ~$25; staged ladder in docs/GPU_COST_OPTIMIZATION.md; $250 emergency ceiling)
+
+The pipeline refuses non-smoke GPU stages without `APPROVE_GPU_SPEND=yes`, and
+refuses final training without a RunPod network volume cache
+(`RUNPOD_VOLUME_PATH`). Climb the ladder: `SMOKE=1 bash
+scripts/run_full_pipeline.sh` runs the $2 50-step smoke first.
+
+#### 1. Data Pipeline (CPU — runs on a laptop, $0)
 
 ```bash
 hf auth login  # OPTIONAL — Qwen3-4B is open-weight. Required only if you add a gated HF mirror.
@@ -282,27 +294,35 @@ hf auth login  # OPTIONAL — Qwen3-4B is open-weight. Required only if you add 
 
 Outputs tokenized splits + reproducibility SHA256 log under `artifacts/data/`.
 
-#### 2. Training: 3 seeds (10–12 h total, ~$30–45)
+#### 2. Training: 3 seeds (max $15 with packing + community pricing)
 
 ```bash
-bash train/run_all_seeds.sh 3        # trains seeds 42, 123, 456
+SEEDS="42 0 1234" bash train/run_all_seeds.sh
+# positional args are a seed LIST, not a count — `run_all_seeds.sh 3` would
+# train a single seed named 3
 ```
 
-Per-seed runtime: 6–8 h on H100, 12–16 h on A100. Output: `results/train/tri_layer/{seed}/loss_curve.csv`.
+Sequence packing + community spot pricing put the 3-seed sweep at ~$10–15
+(4B target). Output: `results/train/tri_layer/{seed}/loss_curve.csv`.
+`RESUME=1` resumes each seed from its latest checkpoint after preemption.
 
-#### 3. Ablation: tri-layer vs final-layer (4 h, ~$24)
+#### 3. Ablation: tri-layer vs final-layer (rung 4 first: max $5)
 
 ```bash
+# Plumbing check first — one seed, two variants (max $5):
+ABLATE_VARIANTS="tri_layer final_layer" SEEDS="42" bash ablate/run_ablation.sh
+# Full 3-seed × 2-variant table only after rung 4 passes:
 bash ablate/run_ablation.sh
 .venv/bin/python -m ablate.compare --results-root results/ablate --out results/ablation/comparison.json
 ```
 
-Optional (3 seeds × 2 variants ≈ 18–24 h). Skip with `SKIP_ABLATE=1` if budget is tight.
+Skip with `SKIP_ABLATE=1` if budget is tight.
 
-#### 4. Serve + Benchmark (4 h, ~$24)
+#### 4. Serve + Benchmark (max $4)
 
 ```bash
-bash serve/bench.sh
+bash release/bench.sh --dry-run   # $0 — print plan without launching vLLM
+bash release/bench.sh             # batches 1 4 16 by default; extend after crossover is bracketed
 ```
 
 Starts vLLM (or SGLang) with `--speculative-config '{"method":"eagle3",...}'`, sends general + finance workloads, measures ITL + acceptance. Output: `results/serve/benchmark_*.json`.
@@ -335,16 +355,21 @@ bash scripts/upload_hf.sh \
 
 ### Cost Breakdown
 
-| Stage | Hardware | Duration | Cost (RunPod US East) |
-|-------|----------|----------|------------------------|
-| Data pipeline | 1× H100 | 1 h | ~$6 |
-| Training × 3 seeds | 1× H100 | 10–12 h | ~$30–45 |
-| Ablation (optional) | 1× H100 | 4 h | ~$12 |
-| Serve + bench | 1× H100 | 2 h | ~$6 |
-| Acceptance analysis | CPU | <1 h | $0 |
-| **Total** | | **~18 h** | **~$55** (+ ablation = ~$70) |
+| Rung | Stage | Hardware | Cost cap |
+|------|-------|----------|----------|
+| 1 | CPU gate (tests + demo + data pipeline) | laptop | $0 |
+| 2 | Pod boot + volume-cache verification | community H100 | $0.50 |
+| 3 | 50-step tri_layer smoke (`SMOKE=1`) | community H100 | $2 |
+| 4 | 1-seed tri_layer vs final_layer ablation | community H100 | $5 |
+| 5 | Final 3-seed tri_layer training | community H100 | $15 |
+| 6 | Serve bench (batches 1 4 16 first) | community H100 | $4 |
+| 7 | Optional Nsight (only if speedup exists) | community H100 | $1 |
+| | **Optimized total target** | | **~$25** |
 
-Alternative: A100 ($0.60/h) instead of H100 ($0.95/h) — +50% runtime, −37% cost.
+Emergency ceiling: $250 (never expected spend). Community spot tier is the
+default; secure tier is explicit opt-in (`--tier secure` in
+`scripts/operator_runpod.py`). Full rung protocol:
+[`docs/GPU_COST_OPTIMIZATION.md`](docs/GPU_COST_OPTIMIZATION.md).
 
 ### Performance Targets (all `[NOT YET MEASURED]` until runs complete)
 

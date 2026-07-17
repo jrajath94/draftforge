@@ -4,7 +4,7 @@ HuggingFace release artifacts for the trained DraftForge draft head.
 
 ## What's here
 
-- `hf_card.md` — HuggingFace model card template (parameterized by `$HEAD_NAME`, `$TARGET_MODEL`, `$MANIFEST_JSON`)
+- `hf_card.md` — HuggingFace model card template (parameterized by `$HEAD_NAME`, `$TARGET_MODEL`, `$RESULTS_SECTION`; `$MANIFEST_JSON` remains available for raw-JSON templates)
 - `make_card.py` — render the card from a results manifest
 - `bench.sh` — one-command reproduction: serves target model in vLLM, sweeps batch/temp/domain, plots acceptance
 - `writeup_template.md` — 1.5K-word analysis skeleton
@@ -18,15 +18,15 @@ HuggingFace release artifacts for the trained DraftForge draft head.
 python -m release.make_card \
   --template release/hf_card.md \
   --results ./results \
-  --head Qwen3-14B-EAGLE3-Finance \
-  --target Qwen/Qwen3-14B \
-  --out ./release/Qwen3-14B-EAGLE3-Finance.md
+  --head qwen3-4b-eagle3-finance \
+  --target Qwen/Qwen3-4B-Instruct-2507 \
+  --out ./release/qwen3-4b-eagle3-finance.md
 ```
 
 ### Run one-command bench
 
 ```bash
-TARGET_MODEL=Qwen/Qwen3-14B HEAD_DIR=./checkpoints/head bash release/bench.sh
+TARGET_MODEL=Qwen/Qwen3-4B-Instruct-2507 HEAD_DIR=./checkpoints/head bash release/bench.sh
 ```
 
 Outputs land in `./results/eval/`:

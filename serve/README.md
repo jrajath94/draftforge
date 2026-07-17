@@ -7,14 +7,14 @@ Phase 4 deliverable: ship both runtimes loading the trained draft head.
 ```bash
 # 1. Build per-runtime serve invocation
 python -m serve.integrate \
-    --target Qwen/Qwen3-14B \
+    --target Qwen/Qwen3-4B-Instruct-2507 \
     --draft results/train/tri_layer/42/checkpoint-2000 \
     --runtime vllm \
     --num-spec 4 \
     --out results/serve/vllm.sh
 
 python -m serve.integrate \
-    --target Qwen/Qwen3-14B \
+    --target Qwen/Qwen3-4B-Instruct-2507 \
     --draft results/train/tri_layer/42/checkpoint-2000 \
     --runtime sglang \
     --num-spec 4 \
@@ -22,7 +22,7 @@ python -m serve.integrate \
 
 # 2. Run benchmarks (baseline first, then with spec)
 bash results/serve/vllm.sh &
-vllm bench latency --model Qwen/Qwen3-14B --save-json results/serve/vllm/baseline.json
+vllm bench latency --model Qwen/Qwen3-4B-Instruct-2507 --save-json results/serve/vllm/baseline.json
 
 # 3. Capture Nsight trace
 nsys profile --trace=cuda,nvtx --output=results/serve/nsys/spec \

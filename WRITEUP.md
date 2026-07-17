@@ -429,7 +429,7 @@ Generates a CPU-only end-to-end run against `data/fixtures/sample_finance.jsonl`
 - `training_log.csv` — loss curves for all seeds (`step,train_loss,val_loss,seed`). **Not present at v1.0.**
 - `LICENSE` — MIT.
 
-**Model Card (rendered):** `HF_CARD.md` is the output of `release/make_card.py` substituting `$TARGET_MODEL`, `$HEAD_NAME`, `$MANIFEST_JSON` in `release/hf_card.md`.
+**Model Card (rendered):** `HF_CARD.md` is the output of `release/make_card.py` substituting `$TARGET_MODEL`, `$HEAD_NAME`, and `$RESULTS_SECTION` (human-readable tables when benchmark artifacts exist, an explicit `[NOT YET MEASURED]` marker when they don't) in `release/hf_card.md`.
 
 **Citation Hint:** include BibTeX from Section 8.
 
@@ -591,7 +591,7 @@ This section is for the user who wants to fill the `[NOT YET MEASURED]` markers 
 | **Total (1 seed)** | | **~8 h** | **~$19** |
 | **Total (3 seeds, full reproducibility)** | | **~22 h** | **~$52** |
 
-(Within the $200-250 budget ceiling from STATE.md; 1-seed path is the floor for any honest measured number.)
+(Optimized spend target is ~$25 via the staged ladder in docs/GPU_COST_OPTIMIZATION.md; $250 is the emergency ceiling, not expected spend. 1-seed path is the floor for any honest measured number.)
 
 **RunPod console flow** (what the screens look like):
 
@@ -635,7 +635,7 @@ This section is for the user who wants to fill the `[NOT YET MEASURED]` markers 
 **Guardrails** (explicit, non-negotiable):
 
 1. **No auto-pod-create.** The operator never POSTs to RunPod's pod-create endpoint. The user pastes `spec` JSON into the RunPod UI; that single click is the explicit "I am spending money" boundary.
-2. **Cost ceiling $200.** Per STATE.md. If your pod is still RUNNING after 24 h, terminate it (`h100-stop` or RunPod UI Terminate). Don't trust auto-stop.
+2. **Cost target ~$25, emergency ceiling $250.** Per docs/GPU_COST_OPTIMIZATION.md. If your pod is still RUNNING after 24 h, terminate it (`h100-stop` or RunPod UI Terminate). Don't trust auto-stop.
 3. **Results pulled before stop.** `/workspace/draftforge/results` is on container disk (volatile). Run `scp ... results` *before* `h100-stop`.
 4. **SSH key in `PUBLIC_KEY`, not `DRAFTFORGE_REPO_URL`.** The `PUBLIC_KEY` env var is what RunPod uses to inject `~/.ssh/authorized_keys`. The repo URL is what `scripts/onboard_pod.sh` clones.
 5. **Don't skip the `--ssh-key` flag if your key isn't `~/.ssh/id_rsa`.** Operator passes it through to `ssh -i` / `scp -i`.

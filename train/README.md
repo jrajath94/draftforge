@@ -1,13 +1,14 @@
 # train/ — EAGLE-3 draft head training
 
-Trains an EAGLE-3 draft head for Qwen3-14B with multi-layer feature fusion,
-training-time-test, and direct token prediction. The head is the only thing
-trained; the 14B target stays frozen.
+Trains an EAGLE-3 draft head for `Qwen/Qwen3-4B-Instruct-2507` with
+multi-layer feature fusion, training-time-test, and direct token
+prediction. The head is the only thing trained; the 4B target stays
+frozen.
 
 ## Architecture (per EAGLE-3 paper, Li et al. 2025)
 
 ```
-Qwen3-14B hidden states at layers [8, 20, 32]
+Qwen3-4B hidden states at layers [7, 18, 29]
             ↓ concat along channel
 Linear(3·hidden → hidden)         # fusion_proj, fresh init
             ↓
@@ -34,8 +35,8 @@ predict the same token ids the teacher would — no hidden-state regression.
 # 1. Install training deps
 pip install -e '.[train]'
 
-# 2. Auth on Hugging Face (Qwen3-14B is gated)
-huggingface-cli login
+# 2. Hugging Face auth is optional for the default target
+#    (`Qwen/Qwen3-4B-Instruct-2507` is open-weight).
 
 # 3. Rent a single H100 (RunPod, Vast, OCI — ~$2-3/hr)
 #    Then on the rented box, run:
@@ -66,7 +67,7 @@ Each seed writes to `results/train/<seed>/`:
 
 - Single-GPU only (multi-node out of scope per project budget/spec).
 - bf16 only — fp16 risks numerical overflow on Qwen, per official EAGLE warning.
-- Tri-layer `[8, 20, 32]` is the default; empirical validation in Phase 3 (ablation).
+- Tri-layer `[7, 18, 29]` is the default for the 36-layer 4B target; empirical validation in Phase 3 (ablation).
 - No curriculum, no dynamic top-k, no custom CUDA — minimal EAGLE-3 baseline.
 
 ## Citations
@@ -74,5 +75,5 @@ Each seed writes to `results/train/<seed>/`:
 - EAGLE-3: Li, Wei, et al. *EAGLE-3: Scaling up Inference Acceleration with
   Training-Time-Test and Feature Fusion.* Mar 2025. (Spec reference.)
 - SpecForge: https://github.com/SafeAILab/EAGLE (recommended training pipeline for EAGLE-3).
-- Qwen3-14B: https://huggingface.co/Qwen/Qwen3-14B
+- Qwen3-4B-Instruct-2507: https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507
 - DeepSpeed: Rasley et al., 2020.

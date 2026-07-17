@@ -6,10 +6,10 @@ Varies one design choice at a time and reports the effect on training loss.
 
 | Variant | layer_indices | What it tests |
 |---------|---------------|---------------|
-| `tri_layer` | `[8, 20, 32]` | EAGLE-3 reference (low + mid + high) |
-| `final_layer` | `[32]` | single last-layer tap baseline |
-| `low_only` | `[8]` | early-layer features only |
-| `mid_only` | `[20]` | mid-layer features only |
+| `tri_layer` | `[7, 18, 29]` | EAGLE-3 reference rescaled to the 36-layer 4B target |
+| `final_layer` | `[35]` | single last-layer tap baseline |
+| `low_only` | `[7]` | early-layer features only |
+| `mid_only` | `[18]` | mid-layer features only |
 
 Each variant trains with the same seed list (default `42 0 1234`),
 the same data, the same hyperparameters — only `eagle3.layer_indices` differs.

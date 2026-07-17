@@ -5,7 +5,7 @@ Ten-question whiteboard defense. Each question cites the concrete evidence (code
 **Project baseline:**
 - **Target model:** `Qwen/Qwen3-4B-Instruct-2507` (36 layers, hidden_size=2560, vocab=151936, ~4B parameters, open-weight).
 - **Head:** EAGLE-3 (Li et al., NeurIPS 2025), tri-layer fusion of target hidden states.
-- **Cost ceiling:** ≤ $250 total (data + 3-seed training + ablation + bench) on H100 spot.
+- **Cost:** optimized target ~$25 total via the staged ladder (docs/GPU_COST_OPTIMIZATION.md); ≤ $250 is the emergency ceiling (data + 3-seed training + ablation + bench) on H100 spot.
 
 ---
 
@@ -235,6 +235,22 @@ The rescale function is `round(fraction × num_hidden_layers)` for `fraction ∈
 - `tests/test_operator_runpod_v13.py` — `test_cmd_spec_with_volume_id_emits_network_volume_id` (asserts `networkVolumeId` set + `volumeInGb=0`), `test_cmd_spec_without_volume_id_keeps_default_disk_path`, `test_cmd_spec_argparse_accepts_volume_id_and_community`.
 
 **Tradeoff.** Network volume must be created once via the RunPod UI (not automatable from the operator). Storage is a paid RunPod resource (~$0.10/GB/month) — pays for itself after 2-3 pod lifetimes on this workload. Documented in `WRITEUP.md` §4.5 as a one-time setup step.
+
+---
+
+## Q15. Why hard spend gates (`APPROVE_GPU_SPEND=yes`, `SMOKE=1`, volume-cache preflight)?
+
+**Decision.** `scripts/run_full_pipeline.sh` refuses any non-smoke GPU stage without `APPROVE_GPU_SPEND=yes`, refuses final training without `RUNPOD_VOLUME_PATH` (override: `ALLOW_NO_VOLUME_CACHE=1`), and `SMOKE=1` routes to the committed `train/config_smoke.yaml` (50 steps, 1 seed, real 4B target, production `[7, 18, 29]` taps) with ablate+serve skipped by default.
+
+**Why.** The dominant cost failure mode is not slow training — it is an accidental full launch: one `bash scripts/run_full_pipeline.sh` on a rented pod previously started a multi-hour 3-seed sweep with no confirmation. An explicit env-var gate makes expensive runs a deliberate act, and the smoke path makes the cheap rung the path of least resistance. The volume-cache preflight blocks the second failure mode: paying GPU rates to re-download the target model on every pod.
+
+**Evidence.**
+- `scripts/run_full_pipeline.sh` — "Spend guards" block (stage 0): exit 3 with a ladder hint when unapproved; volume-cache refusal for final training.
+- `train/train_eagle3.py` — `MAX_STEPS`/`SMOKE_STEPS` env overrides (validated, `MAX_STEPS` wins).
+- `tests/train/test_config.py::test_smoke_config_is_frugal_and_on_target` — pins smoke config to 50 steps, the real target, and the production taps.
+- `release/bench.sh --dry-run` — $0 plan preview; default batch sweep `1 4 16` (rung 6).
+
+**Tradeoff.** One extra env var to type for legitimate full runs. Accepted: typing `APPROVE_GPU_SPEND=yes` costs seconds; an accidental sweep costs tens of dollars.
 
 ---
 

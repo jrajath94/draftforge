@@ -1,4 +1,4 @@
-# Training EAGLE-3 Draft Heads for Language Models: A Case Study on Qwen3-14B + Finance
+# Training EAGLE-3 Draft Heads for Language Models: A Case Study on Qwen3-4B + Finance
 
 **Authors:** [YOUR NAME]  
 **Date:** [YYYY-MM-DD]  
@@ -10,7 +10,7 @@
 
 [~150 words. Concise statement of contribution.]
 
-We train an EAGLE-3 speculative-decoding draft head for Qwen3-14B targeting finance-domain workloads. The head achieves [X]% inter-token latency (ITL) reduction at batch size 1 with [Y]% acceptance length, and exhibits domain-shift penalties of [Z]% when evaluated on finance vs. general text. We measure the batch-size crossover point ([B]% acceptance) and validate tri-layer fusion as superior to final-layer-only via ablation ([N_SEEDS] seeds, [N_VARIANTS] variants). Training code, trained heads, and acceptance-grid artifacts are released on HuggingFace under MIT license. The dominant operational finding is that the crossover batch size is the right knob for production routers: enable speculation for small-batch traffic, disable it for large batches where the verify-side cost dominates.
+We train an EAGLE-3 speculative-decoding draft head for `Qwen/Qwen3-4B-Instruct-2507` targeting finance-domain workloads. The head achieves [X]% inter-token latency (ITL) reduction at batch size 1 with [Y]% acceptance length, and exhibits domain-shift penalties of [Z]% when evaluated on finance vs. general text. We measure the batch-size crossover point ([B]% acceptance) and validate tri-layer fusion as superior to final-layer-only via ablation ([N_SEEDS] seeds, [N_VARIANTS] variants). Training code, trained heads, and acceptance-grid artifacts are released on HuggingFace under MIT license. The dominant operational finding is that the crossover batch size is the right knob for production routers: enable speculation for small-batch traffic, disable it for large batches where the verify-side cost dominates.
 
 ---
 
@@ -28,7 +28,7 @@ We train an EAGLE-3 speculative-decoding draft head for Qwen3-14B targeting fina
 - **[CONTRIBUTION-1]**: End-to-end reproducible training pipeline for EAGLE-3 heads (code released, `make bench` reproduces all numbers).
 - **[CONTRIBUTION-2]**: Empirical evidence that domain shift (finance vs. general) reduces acceptance by [Z]% at T=0.7.
 - **[CONTRIBUTION-3]**: Quantification of batch-size crossover point [B*] where speculation stops helping, derived from a 2×3×5 acceptance grid.
-- **[CONTRIBUTION-4]**: Tri-layer fusion [8, 20, 32] outperforms final-layer-only [39] by [A]% acceptance (ablation, [N_SEEDS] seeds, statistically significant at p<0.05).
+- **[CONTRIBUTION-4]**: Tri-layer fusion [7, 18, 29] outperforms final-layer-only [35] by [A]% acceptance (ablation, [N_SEEDS] seeds, statistically significant at p<0.05).
 
 **Outline.** Section 2 details the architecture, training procedure, ablation, and evaluation. Section 3 reports results across all three axes (domain, temperature, batch). Section 4 discusses the mechanisms, limitations, and production implications. Section 5 lists the exact reproduction commands.
 
@@ -38,15 +38,15 @@ We train an EAGLE-3 speculative-decoding draft head for Qwen3-14B targeting fina
 
 ### 2.1 EAGLE-3 Architecture
 
-**Tri-layer fusion:** The draft head extracts hidden states from layers `[8, 20, 32]` of Qwen3-14B (40 layers total), concatenates along the channel dimension, projects to `hidden_size` via `fusion_proj`, then runs `[N_DECODER_LAYERS]` fresh decoder blocks (Xavier-init, weights decoupled from the target), and finally applies the target's `lm_head` (deep-copied, not re-trained).
+**Tri-layer fusion:** The draft head extracts hidden states from layers `[7, 18, 29]` of `Qwen/Qwen3-4B-Instruct-2507` (36 layers total), concatenates along the channel dimension, projects to `hidden_size` via `fusion_proj`, then runs `[N_DECODER_LAYERS]` fresh decoder blocks (Xavier-init, weights decoupled from the target), and finally applies the target's `lm_head` (deep-copied, not re-trained).
 
 ```
-target.layers[8]  ─┐
-target.layers[20] ─┼─→ concat ─→ fusion_proj ─→ decoder_blocks ─→ lm_head ─→ logits
-target.layers[32] ─┘
+target.layers[7]  ─┐
+target.layers[18] ─┼─→ concat ─→ fusion_proj ─→ decoder_blocks ─→ lm_head ─→ logits
+target.layers[29] ─┘
 ```
 
-**Why tri-layer?** Layer 8 (early, ~20% depth) captures syntactic patterns; layer 20 (mid, ~50% depth) captures semantic features; layer 32 (high, ~80% depth) captures task-specific signals. This three-tap choice follows Li et al. (NeurIPS 2025) for ~40-layer backbones; the ablation in Section 2.3 confirms it beats a single late-layer tap on our workload.
+**Why tri-layer?** Layer 7 (early, ~19% depth) captures syntactic patterns; layer 18 (mid, ~50% depth) captures semantic features; layer 29 (high, ~81% depth) captures task-specific signals. This three-tap choice rescales the paper's 40-layer recipe to the 36-layer 4B backbone; the ablation in Section 2.3 confirms it beats a single late-layer tap on our workload.
 
 **Training-time-test:** Every `[TTT_EVERY]` training steps, the head samples its own drafts for `[TTT_HORIZON]` tokens, feeds them back through the head, and computes the loss on the self-generated sequence. This extends the effective horizon beyond teacher forcing and closes the train/inference gap.
 
@@ -56,7 +56,7 @@ target.layers[32] ─┘
 
 **Setup:**
 
-- **Model:** Qwen3-14B (40 hidden layers, hidden_size=5120, vocab=152064, 14B parameters).
+- **Model:** `Qwen/Qwen3-4B-Instruct-2507` (36 hidden layers, hidden_size=2560, vocab=151936, ~4B parameters).
 - **Target:** frozen (no gradient through target model; `requires_grad=False` on all target params).
 - **Head:** trainable (~[N_HEAD_PARAMS]M parameters — fusion_proj + decoder blocks + lm_head copy).
 - **Optimizer:** AdamW (lr=[LR], betas=([BETA1], [BETA2]), weight_decay=[WD], eps=1e-8).
@@ -79,12 +79,12 @@ target.layers[32] ─┘
 
 ### 2.3 Ablation: Tri-Layer vs. Final-Layer
 
-**Hypothesis:** Tri-layer fusion `[8, 20, 32]` outperforms final-layer-only `[39]`.
+**Hypothesis:** Tri-layer fusion `[7, 18, 29]` outperforms final-layer-only `[35]`.
 
 **Setup:**
 
-- **Baseline (tri-layer):** fusion of 3 taps at layers 8, 20, 32 (`fusion_size=3`).
-- **Variant (final-layer):** single tap at layer 39 (`fusion_size=1`).
+- **Baseline (tri-layer):** fusion of 3 taps at layers 7, 18, 29 (`fusion_size=3`).
+- **Variant (final-layer):** single tap at layer 35 (`fusion_size=1`).
 - **Per variant:** `[N_SEEDS]` seeds (default: 42, 123, 456) with different random initializations.
 - **Metric:** mean acceptance length (`± std`), ITL reduction (ms), training loss convergence (final-step CE).
 
@@ -124,8 +124,8 @@ Crossover point (B*): batch size at which speculative ITL meets baseline ITL, de
 
 #### ITL Reduction
 
-**Baseline:** Qwen3-14B without speculation (autoregressive, KV-cached).
-**Speculative:** Qwen3-14B with EAGLE-3 draft head (`num_speculative_tokens=4`).
+**Baseline:** `Qwen/Qwen3-4B-Instruct-2507` without speculation (autoregressive, KV-cached).
+**Speculative:** `Qwen/Qwen3-4B-Instruct-2507` with EAGLE-3 draft head (`num_speculative_tokens=4`).
 
 Results (per domain, temperature, batch — all measured on H100 NVL 94GB, bf16):
 
@@ -149,7 +149,7 @@ Loss curves (3 seeds, train + val, log-scale y-axis):
 
 #### Nsight Profiling
 
-Profile draft-verify loop on Qwen3-14B vs. Qwen3-14B + EAGLE-3 (one forward+verify step, b=1, seq=512):
+Profile draft-verify loop on `Qwen/Qwen3-4B-Instruct-2507` vs. the same target + EAGLE-3 (one forward+verify step, b=1, seq=512):
 
 - **Draft kernel:** `[DRAFT_TIME]`% of loop time.
 - **Verify kernel:** `[VERIFY_TIME]`% of loop time.
@@ -167,7 +167,7 @@ Profile draft-verify loop on Qwen3-14B vs. Qwen3-14B + EAGLE-3 (one forward+veri
 1. **ITL reduction:** `[X]`% at batch size 1, `[Y]`% at batch size `[B*]`, no benefit (or regression) beyond.
 2. **Acceptance drop (domain shift):** `[Z]`% lower on finance than general at T=0.7, b=1.
 3. **Batch-size crossover:** Speculation beneficial up to batch size `[B*]`, then overhead dominates. Crossover is **the** operational knob.
-4. **Ablation winner:** Tri-layer fusion `[8, 20, 32]` outperforms final-layer `[39]` by `[A]`% (mean acceptance, statistically significant at p<0.05 across `[N_SEEDS]` seeds).
+4. **Ablation winner:** Tri-layer fusion `[7, 18, 29]` outperforms final-layer `[35]` by `[A]`% (mean acceptance, statistically significant at p<0.05 across `[N_SEEDS]` seeds).
 
 ### 3.2 Loss Convergence
 
@@ -212,17 +212,17 @@ The crossover is **sharp** (a 1-2 batch-step transition from speedup to neutral-
 
 The ablation (Section 2.3) confirms that early + mid + late layer taps provide complementary information:
 
-- **Early layers (8):** syntactic structure, part-of-speech patterns, punctuation habits.
-- **Mid layers (20):** semantic features, entity boundaries, coreference.
-- **Late layers (32):** task-specific signals, world knowledge, in-context learning.
+- **Early layers (7):** syntactic structure, part-of-speech patterns, punctuation habits.
+- **Mid layers (18):** semantic features, entity boundaries, coreference.
+- **Late layers (29):** task-specific signals, world knowledge, in-context learning.
 
-Fusion exploits this hierarchy. The single late-layer baseline `[39]` captures only the last category; the gain `[A]%` quantifies the value of the syntactic+semantic priors.
+Fusion exploits this hierarchy. The single late-layer baseline `[35]` captures only the last category; the gain `[A]%` quantifies the value of the syntactic+semantic priors.
 
 ### 4.2 Domain Shift and Training Data
 
 The `[Z]`% drop in acceptance for finance is expected: training data is `[FINANCE_RATIO]`% finance, `[GENERAL_RATIO]`% general. The draft head is optimized for the mixed distribution, not domain-specific.
 
-**Mitigation:** Retrain on 100% finance data (not done here; out of scope, requires curated finance corpus and a second `$70` GPU run). The current head is a *general-purpose* EAGLE-3 for Qwen3-14B with a finance-aware training mix; users with strict domain isolation should retrain.
+**Mitigation:** Retrain on 100% finance data (not done here; out of scope, requires curated finance corpus and a second `$70` GPU run). The current head is a *general-purpose* EAGLE-3 for the 4B target with a finance-aware training mix; users with strict domain isolation should retrain.
 
 ### 4.3 Batch-Size Crossover and Production Implications
 
@@ -232,7 +232,7 @@ The crossover point `[B*]` is where decode GPU utilization saturates. At `batch_
 
 ### 4.4 Limitations
 
-1. **Single model / domain pair:** Results are specific to Qwen3-14B + finance-mixed. Generalization to other models (Llama-3-70B, Mistral-Large) and other domains (code, medical) is untested. The tri-layer index choice `[8, 20, 32]` is calibrated to Qwen3-14B's 40-layer depth; other depths need re-tuning.
+1. **Single model / domain pair:** Results are specific to `Qwen/Qwen3-4B-Instruct-2507` + finance-mixed. Generalization to other models (Llama-3-70B, Mistral-Large) and other domains (code, medical) is untested. The tri-layer index choice `[7, 18, 29]` is calibrated to the 36-layer 4B backbone; other depths need re-tuning.
 2. **Finance domain is mixed:** Training data is `[FINANCE_RATIO]`% finance, `[GENERAL_RATIO]`% general. True domain isolation (finance-only training) is future work and would require a larger finance corpus (current slice is `[FINANCE_COUNT]` examples).
 3. **Nsight profiling:** `[OR: traces were collected and show... / traces were not collected because the pod image lacks `nsys`; end-to-end ITL is the only timing signal.]` Nsight traces are gold for pinpointing draft-bound vs. verify-bound regimes; the `scripts/run_nsight.sh` wrapper is shipped but not exercised in this milestone.
 4. **No cross-model draft:** Did not explore using a smaller model (e.g., Qwen3-7B) as draft. Single-model EAGLE-3 (same backbone, smaller head) is the focus.
@@ -301,7 +301,7 @@ python -m ablate.compare \
 ```bash
 # Render vLLM invocation
 python -m serve.integrate \
-  --target Qwen/Qwen3-14B \
+  --target Qwen/Qwen3-4B-Instruct-2507 \
   --draft results/train/tri_layer/42/best \
   --runtime vllm \
   --out results/serve/vllm_cmd.sh
@@ -309,13 +309,13 @@ python -m serve.integrate \
 # Launch + benchmark
 bash results/serve/vllm_cmd.sh &
 python -m serve.bench \
-  --model Qwen/Qwen3-14B \
+  --model Qwen/Qwen3-4B-Instruct-2507 \
   --draft results/train/tri_layer/42/best \
   --requests-file workloads/general.jsonl \
   --out results/serve/benchmark_general.json
 
 python -m serve.bench \
-  --model Qwen/Qwen3-14B \
+  --model Qwen/Qwen3-4B-Instruct-2507 \
   --draft results/train/tri_layer/42/best \
   --requests-file workloads/finance.jsonl \
   --out results/serve/benchmark_finance.json
@@ -365,7 +365,7 @@ bash scripts/run_nsight.sh \
 
 ## 6. HuggingFace Release
 
-**Model:** `[ORG]/qwen3-14b-eagle3-finance`
+**Model:** `[ORG]/qwen3-4b-eagle3-finance`
 
 **Files:**
 
@@ -384,7 +384,7 @@ bash scripts/run_nsight.sh \
 **Upload command** (requires `huggingface-cli login` with write token):
 
 ```bash
-huggingface-cli upload [ORG]/qwen3-14b-eagle3-finance \
+huggingface-cli upload [ORG]/qwen3-4b-eagle3-finance \
   results/train/tri_layer/42/best \
   --repo-type model
 ```
@@ -427,12 +427,12 @@ huggingface-cli upload [ORG]/qwen3-14b-eagle3-finance \
 
 ```bibtex
 @inproceedings{eagle3-yourname-2026,
-  title     = {Training EAGLE-3 Draft Heads for Language Models: A Case Study on Qwen3-14B + Finance},
+  title     = {Training EAGLE-3 Draft Heads for Language Models: A Case Study on Qwen3-4B + Finance},
   author    = {Your Name},
   year      = {2026},
   booktitle = {arXiv preprint},
   url       = {https://github.com/[org]/draftforge},
-  note      = {Code: \url{https://github.com/[org]/draftforge}; Model: \url{https://huggingface.co/[ORG]/qwen3-14b-eagle3-finance}}
+  note      = {Code: \url{https://github.com/[org]/draftforge}; Model: \url{https://huggingface.co/[ORG]/qwen3-4b-eagle3-finance}}
 }
 ```
 
@@ -444,7 +444,7 @@ huggingface-cli upload [ORG]/qwen3-14b-eagle3-finance \
 2. Leviathan, Y., Kalman, M., Matias, Y. **"Fast Inference from Transformers via Speculative Decoding."** ICML 2023.
 3. Chen, C., Borgeaud, S., Irving, G., et al. **"Accelerating Large Language Model Decoding with Speculative Sampling."** arXiv:2302.01318.
 4. Penedo, G., et al. **"The Datatrove: A Large Language Model-Friendly Data Repository."** 2024.
-5. Qwen Team. **"Qwen3 Technical Report."** 2024. [HF model card](https://huggingface.co/Qwen/Qwen3-14B)
+5. Qwen Team. **"Qwen3 Technical Report."** 2024. [HF model card](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
 6. vLLM Documentation: <https://docs.vllm.ai/en/latest/features/speculative_decoding/>
 7. SGLang Documentation: <https://docs.sglang.io/advanced_features/speculative_decoding.html>
 8. Pydantic v2 Documentation: <https://docs.pydantic.dev/latest/>
