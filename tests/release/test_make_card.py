@@ -33,6 +33,87 @@ def test_render_card_substitutes_placeholders(tmp_path: Path) -> None:
     assert "base_model: Qwen/Qwen3-4B-Instruct-2507" in content
 
 
+def test_results_section_empty_manifest_marks_not_measured(tmp_path: Path) -> None:
+    """Empty results root -> ## Results renders the [NOT YET MEASURED] marker."""
+    template = tmp_path / "tpl.md"
+    template.write_text("## Results\n\n$RESULTS_SECTION\n", encoding="utf-8")
+    out = tmp_path / "out.md"
+    render_card(
+        template_path=template,
+        results_root=tmp_path,  # no artifacts
+        head_name="h",
+        target_model="t",
+        out_path=out,
+    )
+    text = out.read_text(encoding="utf-8")
+    assert "[NOT YET MEASURED]" in text
+    assert "{" not in text  # no raw JSON dump in the rendered card
+
+
+def test_results_section_renders_grid_table(tmp_path: Path) -> None:
+    """Acceptance grid CSV -> markdown table, no [NOT YET MEASURED] marker."""
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    (eval_dir / "acceptance_grid.csv").write_text(
+        "batch,acceptance_rate\n1,0.71\n4,0.68\n", encoding="utf-8"
+    )
+    template = tmp_path / "tpl.md"
+    template.write_text("## Results\n\n$RESULTS_SECTION\n", encoding="utf-8")
+    out = tmp_path / "out.md"
+    render_card(
+        template_path=template,
+        results_root=tmp_path,
+        head_name="h",
+        target_model="t",
+        out_path=out,
+    )
+    text = out.read_text(encoding="utf-8")
+    assert "| batch | acceptance_rate |" in text
+    assert "| 1 | 0.71 |" in text
+    assert "[NOT YET MEASURED]" not in text
+
+
+def test_results_section_renders_per_seed_training_table(tmp_path: Path) -> None:
+    """Per-seed loss curves -> seed table with logged steps + final loss."""
+    seed_dir = tmp_path / "train" / "42"
+    seed_dir.mkdir(parents=True)
+    (seed_dir / "loss_curve.csv").write_text(
+        "step,loss\n1,2.0\n2,1.5\n", encoding="utf-8"
+    )
+    template = tmp_path / "tpl.md"
+    template.write_text("$RESULTS_SECTION\n", encoding="utf-8")
+    out = tmp_path / "out.md"
+    render_card(
+        template_path=template,
+        results_root=tmp_path,
+        head_name="h",
+        target_model="t",
+        out_path=out,
+    )
+    text = out.read_text(encoding="utf-8")
+    assert "| 42 | 2 | 1.5 |" in text
+
+
+def test_manifest_json_is_valid_json(tmp_path: Path) -> None:
+    """$MANIFEST_JSON substitution must be parseable JSON (not Python repr)."""
+    import json as _json
+
+    eval_dir = tmp_path / "eval"
+    eval_dir.mkdir()
+    template = tmp_path / "tpl.md"
+    template.write_text("$MANIFEST_JSON", encoding="utf-8")
+    out = tmp_path / "out.md"
+    render_card(
+        template_path=template,
+        results_root=tmp_path,
+        head_name="h",
+        target_model="t",
+        out_path=out,
+    )
+    parsed = _json.loads(out.read_text(encoding="utf-8"))
+    assert parsed["eval"]["grid"] == []
+
+
 # ---- CLI entrypoint -------------------------------------------------------
 
 

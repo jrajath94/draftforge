@@ -24,11 +24,11 @@ Drop-in draft head for `vllm serve $TARGET_MODEL --speculative-config '{"method"
 - Direct token prediction (not feature-level)
 - Training-time-test with horizon 4
 - DeepSpeed ZeRO-2, bf16, activation checkpointing
-- Seeds: 42, 0, 1234 (≥3 independent runs)
+- Seed protocol: 42, 0, 1234 (≥3 independent runs required before release)
 
 ## Results
 
-$MANIFEST_JSON
+$RESULTS_SECTION
 
 ## Bench
 
@@ -42,7 +42,7 @@ One-command reproduction. See `results/` for committed per-seed loss curves and 
 
 - Draft head is calibrated to $TARGET_MODEL's hidden-state geometry; do not load against a different base model.
 - Acceptance rates degrade on out-of-distribution prompts (see domain-shift analysis in writeup).
-- Trained on a single hardware class (H100 bf16). Numerical behavior on other accelerators may differ.
+- Training targets a single hardware class (H100 bf16). Numerical behavior on other accelerators may differ.
 
 ## Citation
 

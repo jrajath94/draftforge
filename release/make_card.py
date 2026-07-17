@@ -3,11 +3,49 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from string import Template
+from typing import Any
 
 from release.aggregate import aggregate
+
+NOT_MEASURED = (
+    "**[NOT YET MEASURED]** — no benchmark artifacts found under `results/`. "
+    "Rendered numbers appear here only after the GPU evidence ladder "
+    "(`docs/GPU_COST_OPTIMIZATION.md`) produces real acceptance/ITL grids."
+)
+
+
+def _render_results(manifest: dict[str, Any]) -> str:
+    """Render the ## Results body: tables when evidence exists, honest marker when not."""
+    sections: list[str] = []
+
+    eval_block = manifest.get("eval", {})
+    grid = eval_block.get("grid", [])
+    if grid:
+        cols = list(grid[0].keys())
+        header = "| " + " | ".join(cols) + " |"
+        sep = "|" + "|".join("---" for _ in cols) + "|"
+        rows = ["| " + " | ".join(str(r.get(c, "")) for c in cols) + " |" for r in grid]
+        sections.append("### Acceptance grid\n\n" + "\n".join([header, sep, *rows]))
+
+    seeds = manifest.get("training", {}).get("seeds", {})
+    seed_rows = [
+        f"| {seed} | {len(curve)} | {curve[-1].get('loss', 'n/a')} |"
+        for seed, curve in sorted(seeds.items())
+        if curve
+    ]
+    if seed_rows:
+        sections.append(
+            "### Training (per seed)\n\n"
+            "| seed | logged steps | final loss |\n|---|---|---|\n" + "\n".join(seed_rows)
+        )
+
+    if not sections:
+        return NOT_MEASURED
+    return "\n\n".join(sections)
 
 
 def render_card(
@@ -22,7 +60,8 @@ def render_card(
     rendered = Template(tpl).substitute(
         HEAD_NAME=head_name,
         TARGET_MODEL=target_model,
-        MANIFEST_JSON=str(manifest).replace("'", '"'),
+        MANIFEST_JSON=json.dumps(manifest, indent=2, sort_keys=True, default=str),
+        RESULTS_SECTION=_render_results(manifest),
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(rendered, encoding="utf-8")
