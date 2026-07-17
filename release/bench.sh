@@ -16,11 +16,29 @@
 set -euo pipefail
 
 HEAD_DIR="${HEAD_DIR:-./checkpoints/head}"
-TARGET_MODEL="${TARGET_MODEL:-Qwen/Qwen3-14B}"
+TARGET_MODEL="${TARGET_MODEL:-Qwen/Qwen3-4B-Instruct-2507}"
 RESULTS_DIR="${RESULTS_DIR:-./results/eval}"
-BATCH_SIZES="${BATCH_SIZES:-1 4 8 16 32}"
+# Rung-6 frugal default (max $4): sweep 1 4 16 first; extend to "1 4 8 16 32"
+# only after the crossover region is bracketed. See docs/GPU_COST_OPTIMIZATION.md.
+BATCH_SIZES="${BATCH_SIZES:-1 4 16}"
 TEMPS="${TEMPS:-0.0 0.7 1.0}"
 DOMAINS="${DOMAINS:-general finance}"
+
+# --dry-run: print the exact bench plan without launching vLLM (costs $0).
+if [[ "${1:-}" == "--dry-run" || "${DRY_RUN:-0}" == "1" ]]; then
+  cat <<EOF
+[bench --dry-run] no vLLM launched. Plan:
+  target model : ${TARGET_MODEL}
+  draft head   : ${HEAD_DIR}
+  batch sizes  : ${BATCH_SIZES}
+  temperatures : ${TEMPS}
+  domains      : ${DOMAINS}
+  results dir  : ${RESULTS_DIR}
+  steps        : baseline serve :8000 → sweep → spec-decode serve :8001 → sweep
+                 → plots → manifest
+EOF
+  exit 0
+fi
 
 mkdir -p "${RESULTS_DIR}"
 
@@ -28,7 +46,7 @@ echo "==> [1/4] Launch vLLM baseline (no speculation)"
 vllm serve "${TARGET_MODEL}" --port 8000 &
 BASELINE_PID=$!
 trap 'kill "${BASELINE_PID}" 2>/dev/null || true' EXIT
-sleep 90  # warmup; vLLM cold start ~60-90s on H100 with 14B model
+sleep 90  # warmup; vLLM cold start ~60-90s on H100 with the 4B target
 
 echo "==> [2/4] Sweep batch sizes for baseline ITL"
 python -m eval.bench_client \

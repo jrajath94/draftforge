@@ -23,8 +23,8 @@ def _minimal_cfg_dict() -> dict:
 
 def test_defaults_populate() -> None:
     cfg = TrainConfig.model_validate(_minimal_cfg_dict())
-    assert cfg.model.name_or_path == "Qwen/Qwen3-14B"
-    assert cfg.eagle3.layer_indices == [8, 20, 32]
+    assert cfg.model.name_or_path == "Qwen/Qwen3-4B-Instruct-2507"
+    assert cfg.eagle3.layer_indices == [7, 18, 29]
     assert cfg.eagle3.num_decoder_layers == 1
     assert cfg.optimizer.lr == 1e-4
     assert cfg.training.bf16 is True
@@ -78,3 +78,19 @@ def test_max_step_zero_rejected() -> None:
     raw["training"] = {"max_steps": 0}
     with pytest.raises(ValidationError):
         TrainConfig.model_validate(raw)
+
+
+def test_smoke_config_is_frugal_and_on_target() -> None:
+    """train/config_smoke.yaml: 50 steps, real 4B target, production tri-layer taps.
+
+    Guards the GPU-spend ladder's rung 3 (max $2): the smoke config must stay
+    cheap (50 steps) while exercising the exact model + fusion path the final
+    3-seed run uses — otherwise a green smoke proves nothing.
+    """
+    repo_root = Path(__file__).resolve().parents[2]
+    cfg = load_config(repo_root / "train" / "config_smoke.yaml")
+    assert cfg.training.max_steps == 50
+    assert cfg.model.name_or_path == "Qwen/Qwen3-4B-Instruct-2507"
+    assert cfg.eagle3.layer_indices == [7, 18, 29]
+    # warmup must leave room for cosine decay within the 50-step budget
+    assert cfg.optimizer.warmup_steps < cfg.training.max_steps

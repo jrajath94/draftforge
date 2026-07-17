@@ -9,6 +9,12 @@
 #   bash ablate/run_ablation.sh tri_layer final_layer # subset, default 3 seeds
 #   SEEDS="42 0" bash ablate/run_ablation.sh tri_layer
 #
+# Frugal rung-4 invocation (one seed, two variants, max $5 — see
+# docs/GPU_COST_OPTIMIZATION.md):
+#   ABLATE_VARIANTS="tri_layer final_layer" SEEDS="42" bash ablate/run_ablation.sh
+#
+# Precedence for variant list: ABLATE_VARIANTS env > positional args > all 4.
+#
 # Pre-req: train/run_all_seeds.sh must work (rented GPU + HF auth).
 
 set -euo pipefail
@@ -17,7 +23,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 # Args / env
-VARIANTS="${*:-tri_layer final_layer low_only mid_only}"
+VARIANTS="${ABLATE_VARIANTS:-${*:-tri_layer final_layer low_only mid_only}}"
 SEEDS_ENV="${SEEDS:-42 0 1234}"
 BASE_CONFIG="${BASE_CONFIG:-train/config.yaml}"
 RESULTS_ROOT="${RESULTS_ROOT:-results/train}"

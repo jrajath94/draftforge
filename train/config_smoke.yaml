@@ -1,0 +1,63 @@
+# DraftForge smoke-test config (GPU ladder rung 3 — max $2).
+#
+# 50-step, single-seed sanity pass on the REAL target model + REAL tri-layer
+# indices. Purpose: prove the pod, HF cache, data mounts, and loss curve are
+# sane BEFORE approving the 3-seed final run. Smoke losses are NOT evidence —
+# never cite them in README/WRITEUP; final numbers require train/config.yaml
+# with ≥3 seeds.
+#
+# Invoke:
+#   accelerate launch --config_file train/ds_config.json \
+#     -m train.train_eagle3 --config train/config_smoke.yaml --seed 42
+# or via the pipeline: SMOKE=1 bash scripts/run_full_pipeline.sh
+
+model:
+  name_or_path: Qwen/Qwen3-4B-Instruct-2507
+  torch_dtype: bfloat16
+  attn_impl: sdpa
+
+dataset:
+  train_dir: artifacts/data/tokenized/train
+  val_dir: artifacts/data/tokenized/val
+  max_length: 4096
+  text_field: text
+
+eagle3:
+  layer_indices: [7, 18, 29]    # same taps as train/config.yaml — smoke must
+                                # exercise the production fusion path
+  num_decoder_layers: 1
+  head_dim: null
+
+optimizer:
+  name: adamw
+  lr: 1.0e-4
+  betas: [0.9, 0.95]
+  weight_decay: 0.1
+  warmup_steps: 10              # scaled down: 100 warmup > 50 total steps
+                                # would leave zero cosine-decay steps
+
+training:
+  seed: 42
+  max_steps: 50
+  per_device_batch_size: 1
+  grad_accum: 8
+  log_every: 5
+  eval_every: 25
+  save_every: 50
+  bf16: true
+  gradient_checkpointing: true
+  training_time_test_every: 25
+  training_time_test_horizon: 5
+  sequence_pack: true           # smoke should validate the packing path too —
+                                # it is the production throughput lever
+  sequence_pack_max_len: 4096
+
+ds:
+  config_path: train/ds_config.json
+  num_gpus: 1
+  mixed_precision: bf16
+
+output:
+  dir: results/train_smoke/run1
+  save_every: 50
+  keep_last_n_checkpoints: 1
