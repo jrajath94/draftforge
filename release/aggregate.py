@@ -66,24 +66,34 @@ def aggregate(results_root: Path) -> dict[str, Any]:
             seeds[seed_dir.name] = _read_csv_loss(csv_path)
         out["training"] = {"seeds": seeds}
 
-    # Ablation: comparison JSON
+    # Ablation: comparison JSON. Accept both `results/ablate` (canonical
+    # directory tree) and `results/ablation` (legacy comparison-output path).
     ablate_root = results_root / "ablate"
-    if ablate_root.exists():
+    ablation_root = results_root / "ablation"
+    if ablate_root.exists() or ablation_root.exists():
+        comparison = _read_json(ablate_root / "comparison.json")
+        if not comparison:
+            comparison = _read_json(ablation_root / "comparison.json")
         out["ablation"] = {
-            "comparison": _read_json(ablate_root / "comparison.json"),
+            "comparison": comparison,
             "variants": {
                 p.name: _read_json(p / "summary.json")
                 for p in ablate_root.iterdir()
                 if p.is_dir()
-            },
+            } if ablate_root.exists() else {},
         }
 
-    # Acceptance grid from eval
+    # Acceptance grid from eval. Accept both `results/eval/acceptance_grid.csv`
+    # (canonical) and the legacy flat `results/acceptance_grid.csv`.
     eval_root = results_root / "eval"
-    if eval_root.exists():
+    eval_grid = _read_acceptance_grid(eval_root / "acceptance_grid.csv")
+    if not eval_grid:
+        eval_grid = _read_acceptance_grid(results_root / "acceptance_grid.csv")
+    eval_summary = _read_json(eval_root / "summary.json")
+    if eval_grid or eval_summary or eval_root.exists():
         out["eval"] = {
-            "grid": _read_acceptance_grid(eval_root / "acceptance_grid.csv"),
-            "summary": _read_json(eval_root / "summary.json"),
+            "grid": eval_grid,
+            "summary": eval_summary,
         }
 
     return out

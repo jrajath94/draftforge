@@ -81,6 +81,23 @@ def test_aggregate_collects_eval_grid(tmp_path: Path) -> None:
     assert manifest["eval"]["grid"][0]["domain"] == "finance"
 
 
+def test_aggregate_reads_legacy_ablation_and_flat_eval_paths(tmp_path: Path) -> None:
+    ablation_dir = tmp_path / "ablation"
+    ablation_dir.mkdir(parents=True, exist_ok=True)
+    (ablation_dir / "comparison.json").write_text(
+        json.dumps({"winner": "tri_layer"}), encoding="utf-8"
+    )
+    (tmp_path / "acceptance_grid.csv").write_text(
+        "domain,temperature,batch_size,mean_acceptance,eal,itl_ms\n"
+        "finance,0.7,4,0.62,2.63,35.2\n",
+        encoding="utf-8",
+    )
+
+    manifest = aggregate(tmp_path)
+    assert manifest["ablation"]["comparison"]["winner"] == "tri_layer"
+    assert manifest["eval"]["grid"][0]["domain"] == "finance"
+
+
 def test_write_manifest_creates_file(tmp_path: Path) -> None:
     out = tmp_path / "sub" / "manifest.json"
     write_manifest({"a": 1, "b": [1, 2, 3]}, out)
