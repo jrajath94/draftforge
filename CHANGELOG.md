@@ -24,6 +24,52 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.0] — 2026-07-17 — Frugal 4B Target: Spend Gates + Honest Card
+
+"Frugality" version. Retargets training to the open-weight
+Qwen3-4B-Instruct-2507 and hard-gates every GPU dollar behind explicit
+approval, without touching the published-evidence quality bar (3 seeds,
+real serve bench, `[NOT YET MEASURED]` until then).
+
+### refactor
+- Pin target to `Qwen/Qwen3-4B-Instruct-2507`; layer taps rescale by
+  fractional depth `[8,20,32]/40 -> [7,18,29]/36`.
+
+### feat
+- GPU spend gates in `scripts/run_full_pipeline.sh`: non-smoke stages
+  refuse without `APPROVE_GPU_SPEND=yes`; final training requires
+  `RUNPOD_VOLUME_PATH` (`ALLOW_NO_VOLUME_CACHE=1` overrides).
+- `SMOKE=1` routes to committed `train/config_smoke.yaml` (50 steps,
+  1 seed, production taps); `MAX_STEPS`/`SMOKE_STEPS` env caps;
+  `ABLATE_VARIANTS` narrows ablation; `release/bench.sh --dry-run`
+  previews the serve plan at $0; `RESUME=1` for spot preemption.
+- Soft HF auth pre-flight (default target is open-weight);
+  `DRAFTFORGE_SKIP_HF_AUTH=1` for CPU runs.
+- Stdlib fallbacks when `datasketch`/`datasets` extras are absent
+  (Jaccard dedupe, synthetic demo splits) — CPU demo runs on a fresh
+  laptop install.
+- `release/aggregate.py` accepts legacy artifact paths
+  (`results/ablation`, flat acceptance grid).
+
+### fix
+- HF card `## Results` no longer receives a raw manifest dump:
+  `$RESULTS_SECTION` renders markdown tables when artifacts exist and
+  an explicit `[NOT YET MEASURED]` marker when they don't;
+  `$MANIFEST_JSON` is valid JSON now (was Python repr). Card prose no
+  longer claims completed H100 runs before evidence exists.
+
+### docs
+- `docs/GPU_COST_OPTIMIZATION.md`: 7-rung evidence ladder with per-rung
+  acceptance criteria, stop gates, hard budget caps ($25 optimized
+  path, $250 emergency ceiling), and a required run log.
+- DECISIONS.md Q15 (why spend gates); README/writeup/template refresh
+  for the 4B target.
+
+### chore
+- Commit `uv.lock` for reproducible env resolution.
+
+---
+
 ## [1.3.0] — 2026-07-13 — Cost Reduction: Packing + Concurrent + Community
 
 "Cost-reduction" version. Halves per-seed GPU spend and triples training
