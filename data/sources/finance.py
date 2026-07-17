@@ -14,7 +14,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from datasets import load_dataset
+try:
+    from datasets import load_dataset
+except ModuleNotFoundError:  # pragma: no cover - depends on optional extra
+    load_dataset = None  # type: ignore[assignment, unused-ignore]
 
 from data.types import Example
 
@@ -66,6 +69,11 @@ def load_finance(
 
 
 def _load_from_hf(hf_dataset_id: str, max_examples: int) -> list[Example]:
+    if load_dataset is None:
+        raise ModuleNotFoundError(
+            "datasets is required for hf_dataset_id-based finance loading; "
+            "install the data extras or use a local JSONL path"
+        )
     ds = load_dataset(hf_dataset_id, split="train", streaming=True)
     out: list[Example] = []
     for i, row in enumerate(ds):

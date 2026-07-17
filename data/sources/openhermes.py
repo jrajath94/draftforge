@@ -6,7 +6,10 @@ ShareGPT-derived is already the primary source.
 
 from __future__ import annotations
 
-from datasets import load_dataset
+try:
+    from datasets import load_dataset
+except ModuleNotFoundError:  # pragma: no cover - depends on optional extra
+    load_dataset = None  # type: ignore[assignment, unused-ignore]
 
 from data.types import Example
 
@@ -17,6 +20,11 @@ def load_openhermes(
     max_examples: int = 50_000,
 ) -> list[Example]:
     """Load OpenHermes-2.5 instruction/response traces (subset)."""
+    if load_dataset is None:
+        raise ModuleNotFoundError(
+            "datasets is required for OpenHermes loading; install the data "
+            "extras or use a local-only config"
+        )
     ds = load_dataset(hf_dataset_id, split=split, streaming=True)
     out: list[Example] = []
     for i, row in enumerate(ds):

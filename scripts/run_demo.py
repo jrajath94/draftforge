@@ -30,6 +30,7 @@ import math
 import random
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
 # Repo root: parent of scripts/
@@ -55,7 +56,9 @@ def write_demo_marker(results_root: Path) -> None:
         "# Demo output — synthetic, not measured\n\n"
         "All artifacts under this directory were produced by `scripts/run_demo.py`.\n"
         "Numbers are shape-true synthetic data, NOT benchmark results.\n\n"
-        "For real measurements, run `bash scripts/run_full_pipeline.sh` on an H100 pod.\n",
+        "For real measurements, climb the GPU ladder (docs/GPU_COST_OPTIMIZATION.md):\n"
+        "`SMOKE=1 bash scripts/run_full_pipeline.sh` first, then\n"
+        "`APPROVE_GPU_SPEND=yes bash scripts/run_full_pipeline.sh` on an H100 pod.\n",
         encoding="utf-8",
     )
 
@@ -77,9 +80,61 @@ def step_data_prepare(results_root: Path) -> None:
     ]
     result = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        log(f"data.prepare failed:\n{result.stdout}\n{result.stderr}")
-        sys.exit(result.returncode)
+        combined = f"{result.stdout}\n{result.stderr}"
+        missing_optional = (
+            "ModuleNotFoundError: No module named 'datasets'" in combined
+            or "ModuleNotFoundError: No module named 'datasketch'" in combined
+            or "ModuleNotFoundError: No module named 'sklearn'" in combined
+        )
+        if not missing_optional:
+            log(f"data.prepare failed:\n{result.stdout}\n{result.stderr}")
+            sys.exit(result.returncode)
+        _write_demo_prepare_fallback()
+        log("data.prepare optional deps missing; wrote synthetic fallback artifacts")
+        return
     log(result.stdout.strip().splitlines()[-1] if result.stdout.strip() else "data.prepare OK")
+
+
+def _write_demo_prepare_fallback() -> None:
+    """Emit the minimal `data.prepare` artifact shape used by the demo tests.
+
+    The demo path is intentionally laptop-friendly. If optional data-pipeline
+    extras are absent, we still generate a tiny local artifact bundle rather
+    than fail the end-to-end CPU walkthrough.
+    """
+    source = ROOT / "data" / "fixtures" / "sample_finance.jsonl"
+    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    artifacts_root = ROOT / "artifacts" / "demo"
+    splits_root = artifacts_root / "splits"
+    results_root = artifacts_root / "results" / "data"
+    splits_root.mkdir(parents=True, exist_ok=True)
+    results_root.mkdir(parents=True, exist_ok=True)
+
+    n = len(rows)
+    n_train = max(1, int(n * 0.8))
+    n_val = max(1, int(n * 0.1))
+    train = rows[:n_train]
+    val = rows[n_train:n_train + n_val]
+    test = rows[n_train + n_val:]
+    if not test:
+        test = rows[-1:]
+
+    for name, subset in (("train", train), ("val", val), ("test", test)):
+        with (splits_root / f"{name}.jsonl").open("w", encoding="utf-8") as f:
+            for row in subset:
+                f.write(json.dumps(row) + "\n")
+
+    summary = {
+        "is_demo": True,
+        "source": "scripts/run_demo.py fallback",
+        "before_dedup": n,
+        "after_dedup": n,
+        "split_counts": {"train": len(train), "val": len(val), "test": len(test)},
+        "domains": dict(Counter("finance" for _ in rows)),
+    }
+    (results_root / "pipeline_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True), encoding="utf-8"
+    )
 
 
 def synth_loss_curve(variant: str, seed: int, n_steps: int = 100) -> list[tuple[int, float]]:
@@ -282,7 +337,7 @@ def step_release(results_root: Path) -> None:
         "--head",
         "demo-eagle3-head",
         "--target",
-        "Qwen/Qwen3-14B",
+        "Qwen/Qwen3-4B-Instruct-2507",
         "--out",
         str(results_root / "HF_CARD.md"),
     ]
@@ -315,7 +370,8 @@ def main() -> int:
     log(f"  {results_root}/eval/crossover_analysis.md")
     log(f"  {results_root}/manifest.json  (with is_demo=true warning)")
     log(f"  {results_root}/HF_CARD.md")
-    log("For real measurements, run: bash scripts/run_full_pipeline.sh")
+    log("For real measurements: SMOKE=1 bash scripts/run_full_pipeline.sh (rung 3, max $2),")
+    log("then APPROVE_GPU_SPEND=yes bash scripts/run_full_pipeline.sh (rungs 4-6).")
     return 0
 
 

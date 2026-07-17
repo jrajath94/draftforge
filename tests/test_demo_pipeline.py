@@ -87,7 +87,7 @@ def test_demo_pipeline_runs(tmp_path: Path, clean_demo_artifacts: None) -> None:
     assert card_path.exists()
     card_text = card_path.read_text(encoding="utf-8")
     assert "demo-eagle3-head" in card_text
-    assert "Qwen3-14B" in card_text
+    assert "Qwen3-4B-Instruct-2507" in card_text
 
 
 @pytest.mark.slow

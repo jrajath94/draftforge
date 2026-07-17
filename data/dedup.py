@@ -11,7 +11,11 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from datasketch import MinHash, MinHashLSH
+try:
+    from datasketch import MinHash, MinHashLSH
+except ModuleNotFoundError:  # pragma: no cover - exercised via fallback path
+    MinHash = None  # type: ignore[assignment, unused-ignore]
+    MinHashLSH = None  # type: ignore[assignment, unused-ignore]
 
 from data.config import DedupMethod
 from data.types import Example
@@ -43,6 +47,8 @@ def minhash_dedupe(
     examples: list[Example], threshold: float = 0.85, num_perm: int = 128
 ) -> list[Example]:
     """Remove near-duplicate messages using datasketch LSH."""
+    if MinHash is None or MinHashLSH is None:
+        return _fallback_near_dedupe(examples, threshold=threshold)
     lsh = MinHashLSH(threshold=threshold, num_perm=num_perm)
     kept: list[Example] = []
     for i, ex in enumerate(examples):
@@ -72,6 +78,32 @@ def deduplicate(
     # EXACT_PLUS_MINHASH: run both, in order
     after_exact = exact_dedupe(examples)
     return minhash_dedupe(after_exact, threshold=threshold, num_perm=num_perm)
+
+
+def _fallback_near_dedupe(examples: list[Example], threshold: float) -> list[Example]:
+    """Stdlib-only near-dedupe fallback for environments without datasketch.
+
+    This keeps the CPU demo path and basic data pipeline functional on a fresh
+    laptop install. It uses Jaccard overlap on normalized token sets; weaker
+    than MinHash-LSH, but good enough for small fixtures and deterministic
+    tests.
+    """
+    kept: list[Example] = []
+    kept_tokens: list[set[str]] = []
+    for ex in examples:
+        toks = set(_normalize(ex.render()).split())
+        is_dup = False
+        for prev in kept_tokens:
+            denom = len(toks | prev) or 1
+            jaccard = len(toks & prev) / denom
+            if jaccard >= threshold:
+                is_dup = True
+                break
+        if is_dup:
+            continue
+        kept.append(ex)
+        kept_tokens.append(toks)
+    return kept
 
 
 def write_counts_log(

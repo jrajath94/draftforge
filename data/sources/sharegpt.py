@@ -6,7 +6,10 @@ set EAGLE-3 was trained on, ~68K ShareGPT-derived examples).
 
 from __future__ import annotations
 
-from datasets import load_dataset
+try:
+    from datasets import load_dataset
+except ModuleNotFoundError:  # pragma: no cover - depends on optional extra
+    load_dataset = None  # type: ignore[assignment, unused-ignore]
 
 from data.types import Example
 
@@ -17,6 +20,11 @@ def load_sharegpt(
     max_examples: int = 100_000,
 ) -> list[Example]:
     """Load ShareGPT-derived instruction/response traces."""
+    if load_dataset is None:
+        raise ModuleNotFoundError(
+            "datasets is required for ShareGPT loading; install the data "
+            "extras or use a local-only config"
+        )
     ds = load_dataset(hf_dataset_id, split=split, streaming=True)
     out: list[Example] = []
     for i, row in enumerate(ds):
