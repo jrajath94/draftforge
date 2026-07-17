@@ -1,7 +1,7 @@
 """Tests for train/head.py EAGLE3Head.
 
 Uses a stub HF-like target model (no torch dependency for instantiation;
-pure nn.Module shape). Real Qwen3-14B is exercised by the integration
+pure nn.Module shape). Real Qwen3-4B-Instruct-2507 is exercised by the integration
 training run on rented GPU.
 """
 

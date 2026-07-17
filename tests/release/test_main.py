@@ -76,9 +76,9 @@ def test_make_card_command_substitutes_template(tmp_path: Path) -> None:
             "--results",
             str(results_root),
             "--head",
-            "eagle3-qwen3-14b-finance",
+            "eagle3-qwen3-4b-finance",
             "--target",
-            "Qwen/Qwen3-14B",
+            "Qwen/Qwen3-4B-Instruct-2507",
             "--out",
             str(out),
         ],
@@ -87,8 +87,8 @@ def test_make_card_command_substitutes_template(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.stdout
     assert out.exists()
     text = out.read_text(encoding="utf-8")
-    assert "eagle3-qwen3-14b-finance" in text
-    assert "Qwen/Qwen3-14B" in text
+    assert "eagle3-qwen3-4b-finance" in text
+    assert "Qwen/Qwen3-4B-Instruct-2507" in text
     assert "manifest: " in text  # MANIFEST_JSON substituted with non-empty string
 
 

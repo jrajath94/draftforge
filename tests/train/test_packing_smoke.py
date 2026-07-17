@@ -5,7 +5,7 @@ path: collator builds the block-diagonal attention mask + per-doc RoPE reset,
 main loop masks labels at doc boundaries, compute_loss forwards kwargs to the
 head, and the cross-entropy loss is finite.
 
-The test does NOT need a 14B target model — it uses a tiny stub head with
+The test does NOT need the 4B target model — it uses a tiny stub head with
 random logits shaped to match input_ids. The point is to pin that all the
 glue (mask, position_ids, label mask) wires together correctly.
 

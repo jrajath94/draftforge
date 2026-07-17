@@ -15,9 +15,9 @@ embedding output), concatenates along the channel dim, and runs the
 draft head.
 
 For training, target features are detached by default — we don't backprop
-through Qwen3-14B's 14B parameters, only the head (~few-hundred-million).
-This is the standard EAGLE-3 setup (the target is the teacher; only the
-draft head is learned).
+through Qwen3-4B-Instruct-2507's ~4B parameters, only the head
+(~few-hundred-million). This is the standard EAGLE-3 setup (the target is
+the teacher; only the draft head is learned).
 """
 
 from __future__ import annotations

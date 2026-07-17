@@ -82,7 +82,7 @@ class SplitConfig(BaseModel):
 
 
 class TokenizerConfig(BaseModel):
-    name_or_path: str = "Qwen/Qwen3-14B"
+    name_or_path: str = "Qwen/Qwen3-4B-Instruct-2507"
     max_length: int = Field(default=4096, ge=64, le=32768)
     chat_template: str | None = None  # None = tokenizer default
     trust_remote_code: bool = False

@@ -22,7 +22,7 @@ def main() -> int:
     print("DraftForge quickstart: vLLM + SGLang invocation builders")
     print("=" * 60)
 
-    target = "Qwen/Qwen3-14B"
+    target = "Qwen/Qwen3-4B-Instruct-2507"
     head_path = Path("results/train/tri_layer/42/best")
     num_spec = 4
 

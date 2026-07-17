@@ -26,7 +26,9 @@ dataset:
 eagle3:
   layer_indices: [7, 18, 29]    # Qwen3-4B-Instruct-2507 has 36 layers;
                                 # 7=low (~19%), 18=mid (50%), 29=high (~81%).
-                                # Fractional depths match Qwen3-14B's [8,20,32].
+                                # Fractional depths preserve the EAGLE-3 paper's
+                                # 40-layer [8,20,32] recipe (20%/50%/80%) via
+                                # round(t × L). See train/layer_indices.py.
   num_decoder_layers: 1
   head_dim: null                # auto from target
 

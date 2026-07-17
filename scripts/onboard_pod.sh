@@ -184,8 +184,8 @@ cat <<EOF
          --out ./results/manifest.json
        python -m release.make_card --template ./release/hf_card.md \\
          --results ./results --head draftforge-eagle3-head \\
-         --target Qwen/Qwen3-4B --out ./HF_CARD.md
-       huggingface-cli upload <your-org>/qwen3-14b-eagle3-finance \\
+         --target Qwen/Qwen3-4B-Instruct-2507 --out ./HF_CARD.md
+       huggingface-cli upload <your-org>/qwen3-4b-eagle3-finance \\
          ./checkpoints/<best-seed> \\
          ./HF_CARD.md
 

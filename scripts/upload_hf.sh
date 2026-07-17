@@ -7,7 +7,7 @@
 #
 # Usage:
 #   bash scripts/upload_hf.sh \
-#     --repo-id your-org/qwen3-14b-eagle3-finance \
+#     --repo-id your-org/qwen3-4b-eagle3-finance \
 #     --checkpoint-dir results/train/tri_layer/42/best \
 #     --card-path HF_CARD.md
 #
@@ -30,7 +30,7 @@ usage() {
 usage: bash scripts/upload_hf.sh --repo-id ID --checkpoint-dir DIR --card-path FILE
 
 required:
-  --repo-id          HF repo id, e.g. your-org/qwen3-14b-eagle3-finance
+  --repo-id          HF repo id, e.g. your-org/qwen3-4b-eagle3-finance
   --checkpoint-dir   dir containing config.json + model.safetensors + training_config.yaml
   --card-path        path to the rendered HF card (markdown)
 

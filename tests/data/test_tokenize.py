@@ -1,8 +1,7 @@
 """Tests for data/tokenize.py.
 
-Tokenization requires the Qwen3 tokenizer to be downloaded; tests use
-a smaller placeholder if Qwen3 is unavailable. Marked `integration` if
-they need network.
+Tokenization requires the Qwen3 tokenizer to be downloaded. Marked
+`integration` if they need network.
 """
 
 from __future__ import annotations
@@ -16,12 +15,13 @@ from data.config import TokenizerConfig
 
 @pytest.mark.integration
 def test_tokenize_split_round_trip(tmp_path: Path, tiny_traces) -> None:
-    """Real test: requires Qwen3 tokenizer (gated model). Skip if unavailable."""
-    from datasets import load_from_disk
+    """Real test: requires the Qwen3-4B tokenizer. Skip if unavailable."""
+    datasets = pytest.importorskip("datasets")
+    load_from_disk = datasets.load_from_disk
 
     from data.tokenize import tokenize_split, write_tokenized_split
 
-    cfg = TokenizerConfig(name_or_path="Qwen/Qwen3-14B", max_length=512, trust_remote_code=False)
+    cfg = TokenizerConfig(name_or_path="Qwen/Qwen3-4B-Instruct-2507", max_length=512, trust_remote_code=False)
     try:
         ds = tokenize_split(tiny_traces[:4], cfg, name="smoke")
     except Exception as exc:
@@ -39,5 +39,5 @@ def test_tokenize_split_round_trip(tmp_path: Path, tiny_traces) -> None:
 
 def test_tokenizer_config_validates() -> None:
     cfg = TokenizerConfig()
-    assert cfg.name_or_path == "Qwen/Qwen3-14B"
+    assert cfg.name_or_path == "Qwen/Qwen3-4B-Instruct-2507"
     assert cfg.max_length == 4096

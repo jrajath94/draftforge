@@ -1,6 +1,6 @@
 """Unit tests for pure helper functions in train/train_eagle3.py.
 
-The driver itself depends on a 14B-parameter HF model — exercised on rented
+The driver itself depends on a multi-billion-parameter HF model (Qwen3-4B-Instruct-2507) — exercised on rented
 GPU. These tests focus on the deterministic helper functions that don't need
 GPU or HF model loading.
 """

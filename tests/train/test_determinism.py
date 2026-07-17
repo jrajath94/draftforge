@@ -1,7 +1,7 @@
 """Seed-determinism test for EAGLE-3 training.
 
 Verifies that running with the same seed twice produces identical losses,
-and that different seeds produce different losses. Mocks the 14B target
+and that different seeds produce different losses. Mocks the 4B target
 model with a stub so the test runs on CPU in seconds.
 
 Why this matters:

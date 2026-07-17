@@ -2,16 +2,16 @@
   "_comment": "DraftForge EAGLE-3 head configuration. Loaded by vLLM >=0.10.0 + SGLang >=0.4 for speculative decoding. PLACEHOLDER VALUES — replace with measured values after training.",
   "model_type": "eagle3",
   "draftforge_version": "1.0",
-  "target_model": "Qwen/Qwen3-14B",
-  "layer_indices": [8, 20, 32],
+  "target_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "layer_indices": [7, 18, 29],
   "num_decoder_layers": 1,
-  "hidden_size": 5120,
-  "vocab_size": 152064,
-  "num_target_layers": 40,
+  "hidden_size": 2560,
+  "vocab_size": 151936,
+  "num_target_layers": 36,
   "head_architecture": {
     "fusion_proj": {
-      "in_features": 15360,
-      "out_features": 5120,
+      "in_features": 7680,
+      "out_features": 2560,
       "bias": false
     },
     "decoder_blocks": {

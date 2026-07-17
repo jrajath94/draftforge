@@ -5,8 +5,8 @@ baseline in exactly one design dimension. The ablation experiment varies
 EAGLE3.layer_indices to test whether tri-layer fusion beats single-layer.
 
 Hypothesis (per Phase 3 ROADMAP):
-- tri-layer [8, 20, 32] (low + mid + high) > final-layer-only [32]
-- low-layer only [8] < mid [20] (low captures structural; mid captures task)
+- tri-layer [7, 18, 29] (low + mid + high) > final-layer-only [35]
+- low-layer only [7] < mid [18] (low captures structural; mid captures task)
 
 Variance across ≥3 seeds reported in the writeup.
 """
@@ -29,22 +29,22 @@ class AblationConfig(BaseModel):
 PRESETS: dict[str, AblationConfig] = {
     "tri_layer": AblationConfig(
         name="tri_layer",
-        layer_indices=[8, 20, 32],
-        rationale="low + mid + high feature fusion (EAGLE-3 reference design)",
+        layer_indices=[7, 18, 29],
+        rationale="low + mid + high feature fusion (EAGLE-3 reference design, rescaled for 36 layers)",
     ),
     "final_layer": AblationConfig(
         name="final_layer",
-        layer_indices=[32],
+        layer_indices=[35],
         rationale="single final-layer tap; ablation baseline",
     ),
     "low_only": AblationConfig(
         name="low_only",
-        layer_indices=[8],
+        layer_indices=[7],
         rationale="early-layer features only",
     ),
     "mid_only": AblationConfig(
         name="mid_only",
-        layer_indices=[20],
+        layer_indices=[18],
         rationale="mid-layer features only",
     ),
 }

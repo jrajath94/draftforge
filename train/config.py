@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ModelConfig(BaseModel):
-    name_or_path: str = "Qwen/Qwen3-14B"
+    name_or_path: str = "Qwen/Qwen3-4B-Instruct-2507"
     torch_dtype: str = "bfloat16"
     attn_impl: str = "sdpa"  # sdpa | flash_attention_2
 
@@ -28,7 +28,7 @@ class DatasetConfig(BaseModel):
 
 
 class Eagle3Config(BaseModel):
-    layer_indices: list[int] = Field(default_factory=lambda: [8, 20, 32])
+    layer_indices: list[int] = Field(default_factory=lambda: [7, 18, 29])
     num_decoder_layers: int = Field(default=1, ge=1, le=12)
     head_dim: int | None = None  # None = target hidden_size
 

@@ -38,7 +38,7 @@ def _base_cfg_dict() -> dict:
             "stratify_by": "domain",
         },
         "tokenizer": {
-            "name_or_path": "Qwen/Qwen3-14B",
+            "name_or_path": "Qwen/Qwen3-4B-Instruct-2507",
             "max_length": 4096,
         },
     }

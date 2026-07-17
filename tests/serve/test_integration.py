@@ -15,19 +15,19 @@ from serve.integrate import build_sglang_invocation, build_vllm_invocation, main
 
 def test_vllm_invocation_contains_eagle3_method() -> None:
     cmd = build_vllm_invocation(
-        target_model="Qwen/Qwen3-14B",
+        target_model="Qwen/Qwen3-4B-Instruct-2507",
         draft_head_path=Path("/tmp/head"),
         num_speculative_tokens=4,
     )
     assert "vllm serve" in cmd
-    assert "Qwen/Qwen3-14B" in cmd
+    assert "Qwen/Qwen3-4B-Instruct-2507" in cmd
     assert '"method": "eagle3"' in cmd
     assert '"num_speculative_tokens": 4' in cmd
 
 
 def test_vllm_spec_config_is_valid_json() -> None:
     cmd = build_vllm_invocation(
-        target_model="Qwen/Qwen3-14B",
+        target_model="Qwen/Qwen3-4B-Instruct-2507",
         draft_head_path=Path("/tmp/head"),
     )
     matches = re.findall(r"\{[^{}]*method[^{}]*eagle3[^{}]*\}", cmd)
@@ -38,7 +38,7 @@ def test_vllm_spec_config_is_valid_json() -> None:
 
 def test_sglang_invocation_uses_uppercase_eagle3() -> None:
     cmd = build_sglang_invocation(
-        target_model="Qwen/Qwen3-14B",
+        target_model="Qwen/Qwen3-4B-Instruct-2507",
         draft_head_path=Path("/tmp/head"),
         num_speculative_tokens=4,
     )
@@ -75,7 +75,7 @@ def test_cli_main_vllm_writes_invocation_script(
     _invoke_main(
         monkeypatch,
         "--target",
-        "Qwen/Qwen3-14B",
+        "Qwen/Qwen3-4B-Instruct-2507",
         "--draft",
         "/tmp/head",
         "--runtime",
@@ -103,7 +103,7 @@ def test_cli_main_sglang_writes_invocation_script(
     _invoke_main(
         monkeypatch,
         "--target",
-        "Qwen/Qwen3-14B",
+        "Qwen/Qwen3-4B-Instruct-2507",
         "--draft",
         "/tmp/head",
         "--runtime",

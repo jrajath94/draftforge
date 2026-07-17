@@ -7,7 +7,7 @@
 # uploading the trained head to HuggingFace.
 
 model:
-  name_or_path: Qwen/Qwen3-14B
+  name_or_path: Qwen/Qwen3-4B-Instruct-2507
   torch_dtype: bfloat16
   attn_impl: sdpa
 
@@ -18,7 +18,7 @@ dataset:
   text_field: text
 
 eagle3:
-  layer_indices: [8, 20, 32]
+  layer_indices: [7, 18, 29]
   num_decoder_layers: 1
   head_dim: null
 
