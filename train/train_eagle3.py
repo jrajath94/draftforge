@@ -5,7 +5,7 @@ Usage:
         train/train_eagle3.py --config train/config.yaml --seed 42
 
 Implements:
-- Target model: Qwen3-14B in bf16, frozen
+- Target model: Qwen/Qwen3-4B-Instruct-2507 in bf16, frozen
 - Draft head: EAGLE3Head (trainable; tri-layer fusion + decoder + lm_head copy)
 - Loss: cross-entropy on next-token prediction (direct token prediction)
 - Training-time-test (every K steps): sample own drafts for `horizon` tokens,
@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import random
 import sys
 from pathlib import Path
@@ -274,19 +275,29 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    # Qwen3-14B is gated. Verify HF auth BEFORE config load so a missing
-    # token fails fast (8h run would die at from_pretrained otherwise).
-    try:
-        from huggingface_hub import HfApi
+    # HF auth pre-flight. The default target (Qwen3-4B-Instruct-2507) is
+    # open-weight, so auth is OPTIONAL — we soft-warn rather than exit.
+    # A gated target swap (e.g. a private repo) will still need a token;
+    # from_pretrained() will fail loudly in that case. Skip the check
+    # entirely with DRAFTFORGE_SKIP_HF_AUTH=1 (CPU tests / dry-runs).
+    if os.environ.get("DRAFTFORGE_SKIP_HF_AUTH", "0") == "1":
+        print("[train] DRAFTFORGE_SKIP_HF_AUTH=1; skipping HF auth pre-flight")
+    else:
+        try:
+            from huggingface_hub import HfApi
 
-        HfApi().whoami()
-    except Exception as e:
-        print(f"[train] HF auth check failed: {e}", file=sys.stderr)
-        print(
-            "[train] Run `huggingface-cli login` or set HF_TOKEN env var.",
-            file=sys.stderr,
-        )
-        return 2
+            HfApi().whoami()
+        except Exception as e:
+            print(
+                f"[train] WARN: HF auth pre-flight failed: {e}",
+                file=sys.stderr,
+            )
+            print(
+                "[train] Continuing — fine for the default open-weight target. "
+                "If you point at a gated model, set HF_TOKEN or run "
+                "`huggingface-cli login` before launching.",
+                file=sys.stderr,
+            )
 
     cfg = load_config(args.config)
     if args.seed is not None:
@@ -308,6 +319,28 @@ def main() -> int:
             return 2
         cfg.training.sequence_pack_max_len = args.sequence_pack_max_len
         cfg.training.sequence_pack = True  # implicit: setting max_len implies packing on
+
+    # Frugality override: MAX_STEPS (or SMOKE_STEPS, checked second) caps
+    # training.max_steps from the environment so shell orchestrators can run
+    # short smoke passes without editing YAML. MAX_STEPS wins when both are set.
+    steps_env = os.environ.get("MAX_STEPS") or os.environ.get("SMOKE_STEPS")
+    if steps_env:
+        try:
+            steps_override = int(steps_env)
+        except ValueError:
+            print(
+                f"[train] MAX_STEPS/SMOKE_STEPS must be an integer; got {steps_env!r}",
+                file=sys.stderr,
+            )
+            return 2
+        if steps_override < 1:
+            print(
+                f"[train] MAX_STEPS/SMOKE_STEPS must be ≥1; got {steps_override}",
+                file=sys.stderr,
+            )
+            return 2
+        cfg.training.max_steps = steps_override
+        print(f"[train] max_steps overridden via env: {steps_override}")
 
     set_seed(cfg.training.seed)
     cfg.output.dir.mkdir(parents=True, exist_ok=True)

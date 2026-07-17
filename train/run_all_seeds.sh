@@ -6,6 +6,12 @@
 #   bash train/run_all_seeds.sh 42 0      # custom seed list
 #   SEEDS="42 0 1234 7" bash train/run_all_seeds.sh
 #
+# Frugality env (see docs/GPU_COST_OPTIMIZATION.md ladder):
+#   MAX_STEPS=N / SMOKE_STEPS=N — cap training.max_steps (read by train_eagle3)
+#   RESUME=1                    — resume each seed from its latest checkpoint
+#                                 (community-spot preemption recovery)
+#   CONFIG=train/config_smoke.yaml — 50-step smoke config (rung 3, max $2)
+#
 # Each seed writes to results/train/<seed>/ (loss_curve.csv, checkpoints).
 # Re-runs are idempotent — overwrite previously-trained weights for that seed.
 
@@ -15,6 +21,10 @@ SEEDS="${SEEDS:-${*:-42 0 1234}}"
 CONFIG="${CONFIG:-train/config.yaml}"
 DS_CONFIG="${DS_CONFIG:-train/ds_config.json}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-results/train}"
+RESUME_FLAG=()
+if [[ "${RESUME:-0}" == "1" ]]; then
+  RESUME_FLAG=(--resume)
+fi
 
 mkdir -p "${OUTPUT_ROOT}"
 
@@ -34,6 +44,7 @@ for seed in ${SEEDS}; do
     --config "${CONFIG}" \
     --seed "${seed}" \
     --output-dir "${OUT}" \
+    ${RESUME_FLAG[@]+"${RESUME_FLAG[@]}"} \
     2>&1 | tee "${OUT}/train.log"
   rc=$?
   set -e
