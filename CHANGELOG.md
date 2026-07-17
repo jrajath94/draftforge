@@ -24,6 +24,18 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.1] — 2026-07-17 — Patch: CI checkout needs tags for provenance suite
+
+### ci
+- `ci.yml` audit + coverage jobs check out with `fetch-depth: 0` and
+  `fetch-tags: true`. The release-provenance suite asserts against
+  `git tag` and `git rev-list <tag>..HEAD`; the default shallow,
+  tagless checkout made those tests fail in CI ("no v* git tags exist
+  in repo") even when the repo state was correct — the cause of the
+  red `ci` runs on the v1.4.1 and v1.5.0 tips.
+
+---
+
 ## [1.5.0] — 2026-07-17 — Frugal 4B Target: Spend Gates + Honest Card
 
 "Frugality" version. Retargets training to the open-weight

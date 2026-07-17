@@ -20,7 +20,13 @@ jobs:
         python-version: ["3.12"]
 
     steps:
+      # Full history + tags: the release-provenance suite asserts against
+      # `git tag` and `git rev-list <tag>..HEAD` — a shallow, tagless
+      # checkout fails those tests even when the repo state is correct.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -49,6 +55,9 @@ jobs:
     needs: audit
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
