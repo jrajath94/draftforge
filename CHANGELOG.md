@@ -24,6 +24,22 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.9] — 2026-07-18 — Patch: no hardcoded .venv python in ablation runner (rung-4 finding)
+
+### fix
+- `ablate/run_ablation.sh` hardcoded `.venv/bin/python` three times —
+  dead on any host without a repo-local venv (the pod runs system
+  python). Now `"${PYTHON:-python}"`, matching the rest of the
+  orchestration scripts.
+
+### note
+- First real GPU smoke PASSED on this tag's parent (A100 SXM, 50
+  steps, seed 42): loss 14.46 → 6.41 over the curve with finite values
+  throughout; training-time-test loss logged at step 50. Rung 3
+  promoted; rung 4 tripped on the venv path above.
+
+---
+
 ## [1.5.8] — 2026-07-18 — Patch: RoPE position_embeddings for head decoder blocks (smoke-rung finding 8)
 
 ### fix

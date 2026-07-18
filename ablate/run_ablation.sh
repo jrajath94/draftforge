@@ -35,13 +35,13 @@ run_variant() {
   local variant="$1"
   local cfg="artifacts/ablation/${variant}.yaml"
   echo "=== ablate: variant=${variant} ==="
-  .venv/bin/python -m ablate.configs \
+  "${PYTHON:-python}" -m ablate.configs \
     --base "$BASE_CONFIG" \
     --variant "$variant" \
     --out "$cfg" || true
   # NOTE: ablate.configs doesn't expose CLI yet; the script is a stub.
   # Use the Python API directly via -c.
-  .venv/bin/python -c "
+  "${PYTHON:-python}" -c "
 from pathlib import Path
 from ablate.configs import PRESETS, load_yaml, write_variant_config
 base = load_yaml('$BASE_CONFIG')
@@ -61,7 +61,7 @@ for v in $VARIANTS; do
   run_variant "$v"
 done
 
-.venv/bin/python -c "
+"${PYTHON:-python}" -c "
 from pathlib import Path
 from ablate.compare import compare_variants, write_comparison
 by_v = compare_variants(Path('${RESULTS_ROOT}'))
