@@ -1,0 +1,9 @@
+{
+  "checkpoint": "results/train/42/best/checkpoint-2000/trainer.pt",
+  "step": 2000,
+  "rows_evaluated": 200,
+  "positions": 123374,
+  "agreement_rate_greedy": 0.694077,
+  "expected_acceptance_length_geometric": 3.2688,
+  "note": "Greedy (T=0) position-wise draft/target agreement over teacher-forced contexts. Upper-bounds greedy-verification acceptance; serving-stack acceptance additionally reflects multi-token drafting error compounding."
+}

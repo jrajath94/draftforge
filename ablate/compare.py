@@ -35,7 +35,14 @@ def _read_loss_csv(path: Path) -> list[tuple[int, float]]:
             )
         for lineno, line in enumerate(f, start=2):  # header is line 1
             try:
-                step_s, loss_s, _ = line.strip().split(",")
+                parts = line.strip().split(",")
+                step_s, loss_s = parts[0], parts[1]
+                # 4th column (tag) marks training-time-test rows — exclude
+                # them from loss statistics; they measure a different
+                # quantity (self-drafted rollout loss) and inflate any
+                # "final loss" mean (first real 3-seed run finding).
+                if len(parts) >= 4 and parts[3] == "ttt":
+                    continue
                 rows.append((int(step_s), float(loss_s)))
             except (ValueError, IndexError) as e:
                 raise ValueError(

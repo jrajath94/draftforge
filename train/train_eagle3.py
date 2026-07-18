@@ -220,14 +220,20 @@ def write_loss_curve(path: Path, rows: list[dict]) -> None:
 
 
 def write_loss_csv(path: Path, rows: list[dict]) -> None:
+    """CSV mirror of the loss curve. Carries the row `tag` (train/ttt) —
+    without it, training-time-test rows are indistinguishable from train
+    rows and silently inflate any "final loss" statistic computed from the
+    CSV (found in the first real 3-seed run: the step-2000 row was a ttt
+    value of ~16, not the ~1.7 train loss)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if not rows:
-        path.write_text("step,loss,lr\n", encoding="utf-8")
+        path.write_text("step,loss,lr,tag\n", encoding="utf-8")
         return
     with path.open("w", encoding="utf-8") as f:
-        f.write("step,loss,lr\n")
+        f.write("step,loss,lr,tag\n")
         for r in rows:
-            f.write(f"{r['step']},{r['loss']:.6f},{r['lr']:.8f}\n")
+            tag = r.get("tag", "train")
+            f.write(f"{r['step']},{r['loss']:.6f},{r['lr']:.8f},{tag}\n")
 
 
 def save_checkpoint(

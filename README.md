@@ -18,18 +18,21 @@ DraftForge trains EAGLE-3 speculative decoding draft heads for target models, in
 
 A trained EAGLE-3 head that reduces inter-token latency on `Qwen/Qwen3-4B-Instruct-2507` + finance domain, with every figure traceable to `make bench`.
 
-**Result table — `[NOT YET MEASURED]` until training runs.**
+**Result table — measured 2026-07-18 (A100 SXM 80GB, community spot, ~$14 total ladder).**
 
 | Metric | Naked Qwen3-4B-Instruct-2507 | + EAGLE-3 head (this work) | Source |
 |--------|-----------------|----------------------------|--------|
-| Acceptance length (geometric mean) | n/a | `[NOT YET MEASURED]` | `results/acceptance_grid.csv` |
-| ITL reduction @ batch 1 | baseline | `[NOT YET MEASURED]` | Nsight trace `results/profile/*.nsys-rep` |
-| ITL reduction @ batch 16 | baseline | `[NOT YET MEASURED]` | same |
-| Batch-size crossover point | n/a | `[NOT YET MEASURED]` | `eval/acceptance.crossover()` |
-| Domain shift (general vs finance) | n/a | `[NOT YET MEASURED]` | split by `domain` column |
-| Temperature sensitivity (0.0 / 0.7 / 1.0) | n/a | `[NOT YET MEASURED]` | sweep CSV |
+| Final train loss (mean of last 100 train steps), 3 seeds × 2000 steps | n/a | **1.727 ± 0.044 (rel. std 2.58%)** | `results/train/{42,0,1234}/loss_curve.csv` |
+| Draft/target greedy agreement (T=0, held-out val) | n/a | **0.687 ± 0.010** (seeds: 0.694 / 0.676 / 0.692) | `results/eval/acceptance_measured_*.json` |
+| Expected acceptance length (geometric, from p) | n/a | **≈ 3.2 tokens** | same |
+| Ablation probe: tri-layer vs final-layer (200 steps, 1 seed) | n/a | **3.778 vs 4.104 final-mean loss (tri-layer −7.9%)** | `results/ablation/comparison.json` |
+| ITL reduction @ batch 1 / 16 | baseline | `[NOT YET MEASURED]` — needs vLLM EAGLE-3 weight-schema adapter (see Limitations) | — |
+| Batch-size crossover point | n/a | `[NOT YET MEASURED]` — depends on serving-stack ITL | — |
+| Domain shift (general vs finance) | n/a | `[NOT YET MEASURED]` — per-domain split of the agreement eval | — |
 
-Numbers stay `[NOT YET MEASURED]` until `make h100-oneliner` completes on rented GPU (~3–4 h wallclock / ~$10–15 spot for one full tri-layer seed, ~$30–45 for all 3 seeds). Per project integrity baseline: no fabricated numbers.
+The agreement number is a direct measurement (`python -m eval.measure_acceptance`) of position-wise draft-vs-target token agreement over teacher-forced held-out contexts — it upper-bounds greedy-verification acceptance and feeds the geometric acceptance model. Serving-stack ITL requires exporting this head into vLLM's expected EAGLE-3 weight schema (adapter not yet written — documented gap, not a measurement). Per project integrity baseline: no fabricated numbers.
+
+![Measured loss curves](results/figures/loss_curves_measured.png)
 
 ## Architecture
 
@@ -371,15 +374,15 @@ default; secure tier is explicit opt-in (`--tier secure` in
 `scripts/operator_runpod.py`). Full rung protocol:
 [`docs/GPU_COST_OPTIMIZATION.md`](docs/GPU_COST_OPTIMIZATION.md).
 
-### Performance Targets (all `[NOT YET MEASURED]` until runs complete)
+### Performance Targets (2026-07-18 measurement pass)
 
 | Metric | Target | Status |
 |--------|--------|--------|
-| ITL reduction @ b=1 | ≥10% | `[NOT YET MEASURED]` |
-| Acceptance @ T=0.7 | ≥70% | `[NOT YET MEASURED]` |
-| Domain-shift penalty | 5–15% | `[NOT YET MEASURED]` |
-| Training reproducibility (3 seeds) | std < 2% | `[NOT YET MEASURED]` |
-| Batch crossover point | b = 4–8 | `[NOT YET MEASURED]` |
+| ITL reduction @ b=1 | ≥10% | `[NOT YET MEASURED]` — blocked on vLLM weight-schema adapter |
+| Greedy agreement (T=0 proxy for acceptance) | ≥70% | **68.7% ± 1.0%** — just under target; measured, not tuned |
+| Domain-shift penalty | 5–15% | `[NOT YET MEASURED]` — per-domain eval split pending |
+| Training reproducibility (3 seeds) | std < 2% | **2.58% rel. std** — slight miss vs target (measured; last-100-train-step means) |
+| Batch crossover point | b = 4–8 | `[NOT YET MEASURED]` — depends on serving-stack ITL |
 
 ### Design Rationale
 
@@ -407,7 +410,17 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 
 ## Limitations
 
-- **Bench numbers are `[NOT YET MEASURED]`.** Until `make bench` runs on H100, all result rows are placeholders.
+- **Serving-stack ITL is `[NOT YET MEASURED]`.** Training, ablation-probe, and
+  direct acceptance measurements are real (2026-07-18, A100). But vLLM's
+  EAGLE-3 loader expects the official EAGLE weight schema (`midlayer.*`,
+  `fc.*`, `t2d`/`d2t` vocab maps); this head's checkpoint uses its own
+  module names, so a weight-schema adapter must be written before
+  `release/bench.sh` can measure the ITL delta and batch-size crossover.
+  The greedy-agreement eval (`eval/measure_acceptance.py`) is
+  serving-stack-independent and upper-bounds greedy-verification acceptance.
+- **Ablation is a 1-seed, 200-step probe.** The tri-layer vs final-layer
+  comparison (−7.5% loss) validates the harness and direction, not the
+  publication claim — that needs 3 seeds at full steps (~$8 more GPU).
 - **Single target model.** `Qwen/Qwen3-4B-Instruct-2507` only. Tri-layer indices `[7, 18, 29]` are model-specific (rescaled from Qwen3-14B's `[8, 20, 32]` for 36 vs 40 layers).
 - **Single-GPU training.** Single-process PyTorch bf16, not multi-node. `train/ds_config.json` is an unused ZeRO template (see DECISIONS.md Q8 amendment).
 - **Inference runtimes.** vLLM + SGLang only. Exllamav2, TensorRT-LLM, llama.cpp not benchmarked.

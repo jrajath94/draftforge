@@ -28,7 +28,21 @@ Drop-in draft head for `vllm serve Qwen/Qwen3-4B-Instruct-2507 --speculative-con
 
 ## Results
 
-**[NOT YET MEASURED]** — no benchmark artifacts found under `results/`. Rendered numbers appear here only after the GPU evidence ladder (`docs/GPU_COST_OPTIMIZATION.md`) produces real acceptance/ITL grids.
+### Measured acceptance (greedy draft/target agreement, held-out val)
+
+| seed | ckpt step | agreement p | E[accept len] (geometric) |
+|---|---|---|---|
+| 0 | 1000 | 0.675726 | 3.0838 |
+| 1234 | 1500 | 0.692318 | 3.2501 |
+| 42 | 2000 | 0.694077 | 3.2688 |
+
+### Training (per seed)
+
+| seed | logged steps | final loss (mean of last ≤100 train steps) |
+|---|---|---|
+| 0 | 2000 | 1.7002 |
+| 1234 | 2000 | 1.7787 |
+| 42 | 2000 | 1.7029 |
 
 ## Bench
 

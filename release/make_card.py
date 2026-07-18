@@ -23,6 +23,20 @@ def _render_results(manifest: dict[str, Any]) -> str:
     sections: list[str] = []
 
     eval_block = manifest.get("eval", {})
+    measured = eval_block.get("measured", {})
+    measured_rows = [
+        f"| {seed} | {m.get('step', '?')} | {m.get('agreement_rate_greedy', '?')} "
+        f"| {m.get('expected_acceptance_length_geometric', '?')} |"
+        for seed, m in sorted(measured.items())
+        if isinstance(m, dict) and m
+    ]
+    if measured_rows:
+        sections.append(
+            "### Measured acceptance (greedy draft/target agreement, held-out val)\n\n"
+            "| seed | ckpt step | agreement p | E[accept len] (geometric) |\n"
+            "|---|---|---|---|\n" + "\n".join(measured_rows)
+        )
+
     grid = eval_block.get("grid", [])
     if grid:
         cols = list(grid[0].keys())
@@ -32,15 +46,18 @@ def _render_results(manifest: dict[str, Any]) -> str:
         sections.append("### Acceptance grid\n\n" + "\n".join([header, sep, *rows]))
 
     seeds = manifest.get("training", {}).get("seeds", {})
-    seed_rows = [
-        f"| {seed} | {len(curve)} | {curve[-1].get('loss', 'n/a')} |"
-        for seed, curve in sorted(seeds.items())
-        if curve
-    ]
+    seed_rows = []
+    for seed, curve in sorted(seeds.items()):
+        if not curve:
+            continue
+        tail = [r["loss"] for r in curve[-100:] if "loss" in r]
+        final = sum(tail) / len(tail) if tail else float("nan")
+        seed_rows.append(f"| {seed} | {len(curve)} | {final:.4f} |")
     if seed_rows:
         sections.append(
             "### Training (per seed)\n\n"
-            "| seed | logged steps | final loss |\n|---|---|---|\n" + "\n".join(seed_rows)
+            "| seed | logged steps | final loss (mean of last ≤100 train steps) |\n"
+            "|---|---|---|\n" + "\n".join(seed_rows)
         )
 
     if not sections:

@@ -26,7 +26,11 @@ cd "$REPO_ROOT"
 VARIANTS="${ABLATE_VARIANTS:-${*:-tri_layer final_layer low_only mid_only}}"
 SEEDS_ENV="${SEEDS:-42 0 1234}"
 BASE_CONFIG="${BASE_CONFIG:-train/config.yaml}"
-RESULTS_ROOT="${RESULTS_ROOT:-results/train}"
+# results/ablate (not results/train): ablate.compare and the docs read
+# results/ablate, and variant dirs inside results/train would pollute
+# release.aggregate's per-seed walk (rung-4 finding: comparison.json
+# aggregated all-zeros because the runner and reader disagreed on the root).
+RESULTS_ROOT="${RESULTS_ROOT:-results/ablate}"
 COMPARE_OUT="${COMPARE_OUT:-results/ablation/comparison.json}"
 
 mkdir -p "$(dirname "$COMPARE_OUT")" "$RESULTS_ROOT"

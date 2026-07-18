@@ -1,0 +1,30 @@
+{
+  "final_layer": {
+    "mean_of_means": 4.10437147,
+    "n_seeds": 1,
+    "per_seed": {
+      "42": 4.10437147
+    },
+    "std_of_means": 0.0
+  },
+  "low_only": {
+    "mean_of_means": 0.0,
+    "n_seeds": 0,
+    "per_seed": {},
+    "std_of_means": 0.0
+  },
+  "mid_only": {
+    "mean_of_means": 0.0,
+    "n_seeds": 0,
+    "per_seed": {},
+    "std_of_means": 0.0
+  },
+  "tri_layer": {
+    "mean_of_means": 3.77836226,
+    "n_seeds": 1,
+    "per_seed": {
+      "42": 3.77836226
+    },
+    "std_of_means": 0.0
+  }
+}

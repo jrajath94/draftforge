@@ -21,8 +21,24 @@ build/
 *.bin
 *.safetensors
 !release/head.placeholder.safetensors
+# results/: commit small measured evidence (curves, comparisons, figures,
+# run log); keep bulk artifacts (checkpoints, raw pod pulls) out of git.
 results/*
 !results/.gitkeep
+!results/gpu_run_log.md
+!results/manifest.json
+!results/train/
+!results/train/**
+!results/ablate/
+!results/ablate/**
+!results/ablation/
+!results/ablation/**
+!results/eval/
+!results/eval/**
+!results/figures/
+!results/figures/**
+results/train/**/checkpoint-*
+results/train/**/best/
 .venv/
 artifacts/
 *.egg

@@ -90,14 +90,14 @@ def test_write_loss_csv_writes_header_and_rows(tmp_path: Path) -> None:
     p = tmp_path / "lc.csv"
     write_loss_csv(p, rows)
     text = p.read_text()
-    assert "step,loss,lr" in text
-    assert "0,1.500000,0.00010000" in text
+    assert "step,loss,lr,tag" in text
+    assert "0,1.500000,0.00010000,train" in text
 
 
 def test_write_loss_csv_handles_empty(tmp_path: Path) -> None:
     p = tmp_path / "lc_empty.csv"
     write_loss_csv(p, [])
-    assert p.read_text() == "step,loss,lr\n"
+    assert p.read_text() == "step,loss,lr,tag\n"
 
 
 # ---- compute_loss smoke ------------------------------------------------------
@@ -213,7 +213,7 @@ def test_save_checkpoint_excludes_target_model_and_prunes(tmp_path: Path) -> Non
     assert not (tmp_path / "checkpoint-50").exists(), "older checkpoint not pruned"
     ckpt = tmp_path / "checkpoint-100" / "trainer.pt"
     assert ckpt.exists()
-    state = torch.load(ckpt, weights_only=False)
+    state = torch.load(ckpt, weights_only=True)
     assert state["step"] == 100
     assert all(not k.startswith("target_model.") for k in state["head_state"])
     assert any(k.startswith("fusion_proj.") for k in state["head_state"])

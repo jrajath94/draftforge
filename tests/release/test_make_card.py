@@ -91,7 +91,8 @@ def test_results_section_renders_per_seed_training_table(tmp_path: Path) -> None
         out_path=out,
     )
     text = out.read_text(encoding="utf-8")
-    assert "| 42 | 2 | 1.5 |" in text
+    # mean of last ≤100 train-step losses: (2.0 + 1.5) / 2
+    assert "| 42 | 2 | 1.7500 |" in text
 
 
 def test_manifest_json_is_valid_json(tmp_path: Path) -> None:

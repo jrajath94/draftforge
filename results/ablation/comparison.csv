@@ -1,0 +1,5 @@
+variant,n_seeds,mean_final_loss,std_final_loss
+final_layer,1,4.104371,0.000000
+low_only,0,0.000000,0.000000
+mid_only,0,0.000000,0.000000
+tri_layer,1,3.778362,0.000000

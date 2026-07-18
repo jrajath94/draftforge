@@ -24,6 +24,45 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.6.0] — 2026-07-18 — Measured: 3-seed training + acceptance evidence lands
+
+First release with real GPU evidence. Full ladder executed on a community
+A100 SXM (~$14 total incl. one dud pod): 50-step smoke, 2-variant probe,
+3-seed × 2000-step production training, direct acceptance measurement.
+RunPod account torn down to zero after artifact pull.
+
+### measured (committed under results/)
+- 3-seed loss curves: final train loss **1.727 ± 0.044** (rel. std
+  2.58%; mean of last 100 train steps; seeds 42/0/1234).
+- Greedy draft/target agreement on held-out val: **0.687 ± 0.010**
+  (0.694 / 0.676 / 0.692) → geometric expected acceptance length ≈ 3.2.
+- Ablation probe (1 seed, 200 steps): tri_layer **3.778** vs
+  final_layer **4.104** final-mean loss (tri-layer −7.9%).
+- Figures + run log: `results/figures/loss_curves_measured.png`,
+  `results/gpu_run_log.md`.
+- Serving-stack ITL/crossover remain `[NOT YET MEASURED]` — vLLM's
+  EAGLE-3 loader expects the official weight schema; adapter documented
+  in README Limitations.
+
+### feat
+- `eval/measure_acceptance.py`: serving-stack-independent acceptance
+  measurement (draft-vs-target greedy agreement over held-out
+  contexts), feeding the geometric acceptance model.
+- HF card renders measured-acceptance and per-seed training tables from
+  the manifest (`release/aggregate.py` picks up
+  `acceptance_measured_*.json`).
+
+### fix
+- Loss CSVs carry a `tag` column (train/ttt): training-time-test rows
+  were indistinguishable from train rows and inflated final-loss
+  statistics (the step-2000 "loss" was a ttt value of ~16, not ~1.7).
+  `ablate.compare` and `release.aggregate` exclude ttt rows.
+- `ablate/run_ablation.sh` default results root → `results/ablate`
+  (runner wrote `results/train/<variant>` while compare + docs read
+  `results/ablate` — comparison.json aggregated all-zeros).
+
+---
+
 ## [1.5.10] — 2026-07-18 — Patch: checkpoints exclude frozen target + prune (rung-5 finding)
 
 ### fix

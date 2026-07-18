@@ -24,14 +24,22 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _read_csv_loss(path: Path) -> list[dict[str, float]]:
-    """Read a loss-curve CSV written by train/train_eagle3.py."""
+    """Read a loss-curve CSV written by train/train_eagle3.py.
+
+    Rows tagged `ttt` (training-time-test) are excluded — they measure
+    self-drafted rollout loss, not train loss, and corrupt final-loss
+    statistics (first real 3-seed run finding). The non-numeric `tag`
+    column itself is dropped from the returned dicts.
+    """
     rows: list[dict[str, float]] = []
     if not path.exists():
         return rows
     with path.open("r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for r in reader:
-            rows.append({k: float(v) for k, v in r.items() if v})
+            if r.get("tag") == "ttt":
+                continue
+            rows.append({k: float(v) for k, v in r.items() if v and k != "tag"})
     return rows
 
 
@@ -90,10 +98,17 @@ def aggregate(results_root: Path) -> dict[str, Any]:
     if not eval_grid:
         eval_grid = _read_acceptance_grid(results_root / "acceptance_grid.csv")
     eval_summary = _read_json(eval_root / "summary.json")
-    if eval_grid or eval_summary or eval_root.exists():
+    # Direct acceptance measurements (eval/measure_acceptance.py) — one JSON
+    # per seed, produced without the serving stack.
+    measured = {
+        p.stem.replace("acceptance_measured_", ""): _read_json(p)
+        for p in sorted(eval_root.glob("acceptance_measured_*.json"))
+    } if eval_root.exists() else {}
+    if eval_grid or eval_summary or measured or eval_root.exists():
         out["eval"] = {
             "grid": eval_grid,
             "summary": eval_summary,
+            "measured": measured,
         }
 
     return out
