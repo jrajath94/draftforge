@@ -341,3 +341,26 @@ def test_no_hidden_states_raises_runtime_error() -> None:
     with pytest.raises(RuntimeError, match=r"hidden_states"):
         with torch.no_grad():
             head(input_ids=input_ids)
+
+
+def test_head_forward_with_bf16_target(stub_target) -> None:
+    """Regression (rung-3 smoke): a bf16 target emits bf16 hidden states and
+    carries a bf16 lm_head; the head's fresh fp32 layers crashed with
+    'mat1 and mat2 must have the same dtype'. The head must cast at the
+    fusion boundary and hold an fp32 lm_head copy, keeping fp32 compute
+    under a bf16 target."""
+    target, config = stub_target
+    target = target.to(torch.bfloat16)
+    # Embedding output must be bf16; keep input_ids long.
+    head = EAGLE3Head(
+        target_model=target,
+        target_config=config,
+        layer_indices=[0, 1, 3],
+        num_decoder_layers=1,
+    )
+    assert head.lm_head.weight.dtype == torch.float32
+    input_ids = torch.randint(0, config.vocab_size, (2, 8))
+    logits = head(input_ids=input_ids)
+    assert logits.dtype == torch.float32
+    assert logits.shape == (2, 8, config.vocab_size)
+    assert torch.isfinite(logits).all()

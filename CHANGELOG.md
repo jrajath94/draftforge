@@ -24,6 +24,18 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.7] — 2026-07-18 — Patch: fp32 head under bf16 target (smoke-rung finding 7)
+
+### fix
+- With the target in bf16, the head crashed with "mat1 and mat2 must
+  have the same dtype": deep-copied decoder blocks and lm_head carried
+  the target's bf16 while fresh fusion weights were fp32. Head dtype
+  policy is now explicit — fp32 compute end-to-end (decoder-block and
+  lm_head copies cast to fp32 at init; hidden states cast at the fusion
+  boundary). Regression test runs the head under a bf16 stub target.
+
+---
+
 ## [1.5.6] — 2026-07-18 — Patch: 4-D bool packed attention mask (smoke-rung finding 6)
 
 ### fix

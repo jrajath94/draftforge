@@ -84,7 +84,10 @@ class EAGLE3Head(nn.Module):
         template_layer = target_layers[0]
         self.decoder_blocks = nn.ModuleList()
         for _ in range(num_decoder_layers):
-            blk = copy.deepcopy(template_layer)
+            # .float(): the template layer carries the target's dtype (bf16
+            # on GPU) — the head's dtype policy is fp32 compute (see lm_head
+            # note below), so the fresh copy must be fp32 too.
+            blk = copy.deepcopy(template_layer).float()
             # Random-init the copy (decouple from target weights)
             for p in blk.parameters():
                 p.requires_grad = True
@@ -95,10 +98,14 @@ class EAGLE3Head(nn.Module):
             self.decoder_blocks.append(blk)
 
         # 3. LM head — copy from target (do not retrain vocabulary projection).
+        # Cast the copy to fp32: the head's dtype policy is fp32 compute even
+        # under a bf16 target (fresh fusion/decoder params are fp32-init), so
+        # a bf16 lm_head copy would collide with the fp32 hidden states
+        # (rung-3 smoke: "mat1 and mat2 must have the same dtype").
         target_lm_head = getattr(target_model, "lm_head", None)
         if target_lm_head is None:
             raise ValueError("target_model.lm_head not found")
-        self.lm_head = copy.deepcopy(target_lm_head)
+        self.lm_head = copy.deepcopy(target_lm_head).float()
 
         # Freeze target model and target LM head; only head trains.
         for p in self.target_model.parameters():
@@ -148,6 +155,8 @@ class EAGLE3Head(nn.Module):
         # Hidden states index by output layer (1-based offset)
         taps = [all_hidden[i + 1] for i in self.layer_indices]
         fused = torch.cat(taps, dim=-1)  # (B, L, L*hidden)
+        # Boundary cast: target may run bf16 while the head computes fp32.
+        fused = fused.to(self.fusion_proj.weight.dtype)
         h = self.fusion_proj(fused)  # (B, L, hidden)
 
         # Run fresh decoder blocks (causal; attention mask propagates)
