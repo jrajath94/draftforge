@@ -24,6 +24,20 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.8] — 2026-07-18 — Patch: RoPE position_embeddings for head decoder blocks (smoke-rung finding 8)
+
+### fix
+- Modern HF decoder layers receive RoPE as a precomputed
+  `position_embeddings` (cos, sin) tuple from the parent model; the
+  head called its bare Qwen3 block without one → "cannot unpack
+  non-iterable NoneType". The head now references the frozen target's
+  parameter-free rotary module and forwards (cos, sin) to its blocks
+  (legacy/stub targets without `rotary_emb` keep the plain call).
+  Regression test swaps a position_embeddings-demanding block into the
+  head.
+
+---
+
 ## [1.5.7] — 2026-07-18 — Patch: fp32 head under bf16 target (smoke-rung finding 7)
 
 ### fix

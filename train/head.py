@@ -97,6 +97,12 @@ class EAGLE3Head(nn.Module):
                     nn.init.zeros_(p)
             self.decoder_blocks.append(blk)
 
+        # 2b. RoPE — reference (not copy) the target's rotary module; it is
+        # parameter-free (inv_freq buffer only) and frozen. None for
+        # stub/legacy targets that don't expose one.
+        rotary = getattr(target_model, "model", None)
+        self.rotary_emb = getattr(rotary, "rotary_emb", None) if rotary is not None else None
+
         # 3. LM head — copy from target (do not retrain vocabulary projection).
         # Cast the copy to fp32: the head's dtype policy is fp32 compute even
         # under a bf16 target (fresh fusion/decoder params are fp32-init), so
@@ -159,12 +165,25 @@ class EAGLE3Head(nn.Module):
         fused = fused.to(self.fusion_proj.weight.dtype)
         h = self.fusion_proj(fused)  # (B, L, hidden)
 
-        # Run fresh decoder blocks (causal; attention mask propagates)
+        # Run fresh decoder blocks (causal; attention mask propagates).
+        # Modern HF decoder layers receive RoPE as a precomputed
+        # `position_embeddings` (cos, sin) tuple from the parent model — a
+        # bare layer called without it crashes with "cannot unpack
+        # non-iterable NoneType" (rung-3 smoke). Reuse the frozen target's
+        # rotary module when it exposes one; stub/legacy targets without
+        # rotary_emb keep the plain call.
+        blk_kwargs: dict[str, object] = {}
+        if self.rotary_emb is not None:
+            pos = position_ids
+            if pos is None:
+                pos = torch.arange(h.size(1), device=h.device).unsqueeze(0).expand(h.size(0), -1)
+            blk_kwargs["position_embeddings"] = self.rotary_emb(h, pos)
         for blk in self.decoder_blocks:
             out = blk(
                 hidden_states=h,
                 attention_mask=attention_mask,
                 position_ids=position_ids,
+                **blk_kwargs,
             )
             # HF layer outputs vary across versions; tolerate dict / tuple / Tensor
             if isinstance(out, dict):

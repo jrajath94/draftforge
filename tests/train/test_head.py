@@ -364,3 +364,50 @@ def test_head_forward_with_bf16_target(stub_target) -> None:
     assert logits.dtype == torch.float32
     assert logits.shape == (2, 8, config.vocab_size)
     assert torch.isfinite(logits).all()
+
+
+class _RotaryStub(nn.Module):
+    """Mimics HF rotary module: (x, position_ids) -> (cos, sin)."""
+
+    def forward(self, x, position_ids):
+        b, length = position_ids.shape
+        dim = x.shape[-1]
+        cos = torch.ones(b, length, dim, dtype=x.dtype)
+        sin = torch.zeros(b, length, dim, dtype=x.dtype)
+        return cos, sin
+
+
+class _ModernStubLayer(nn.Module):
+    """Modern HF decoder layer: REQUIRES position_embeddings (cos, sin)."""
+
+    def __init__(self, hidden_size: int) -> None:
+        super().__init__()
+        self.mlp = nn.Linear(hidden_size, hidden_size)
+
+    def forward(self, hidden_states, attention_mask=None, position_ids=None,
+                position_embeddings=None, **_kw):
+        cos, sin = position_embeddings  # crashes exactly like Qwen3 if None
+        return (hidden_states + self.mlp(hidden_states) * 0.01 + cos.sum() * 0.0 + sin.sum() * 0.0,)
+
+
+def test_head_passes_position_embeddings_to_modern_layers(stub_target) -> None:
+    """Regression (rung-3 smoke): modern Qwen3 layers unpack
+    `position_embeddings` — calling a bare layer without them raises
+    'cannot unpack non-iterable NoneType'. When the target exposes
+    model.rotary_emb, the head must compute and forward (cos, sin)."""
+    target, config = stub_target
+    head = EAGLE3Head(
+        target_model=target,
+        target_config=config,
+        layer_indices=[0, 1, 3],
+        num_decoder_layers=1,
+    )
+    # Swap in a modern block + rotary AFTER construction: the stub target's
+    # own forward stays legacy (real Qwen3 feeds position_embeddings to its
+    # layers internally), while the head's block now demands the tuple.
+    head.decoder_blocks[0] = _ModernStubLayer(hidden_size=64)
+    head.rotary_emb = _RotaryStub()
+    input_ids = torch.randint(0, config.vocab_size, (2, 8))
+    logits = head(input_ids=input_ids)
+    assert logits.shape == (2, 8, config.vocab_size)
+    assert torch.isfinite(logits).all()
