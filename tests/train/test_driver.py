@@ -183,3 +183,37 @@ def test_build_masked_labels_unpacked_keeps_intra_sequence_shift() -> None:
     input_ids = torch.tensor([[3, 4, 5, 6]])
     labels = build_masked_labels(input_ids)
     assert labels.tolist() == [[4, 5, 6, -100]]
+
+
+# ---- save_checkpoint ---------------------------------------------------------
+
+
+class _TinyHeadWithTarget(torch.nn.Module):
+    """Mimics EAGLE3Head's structure: frozen target submodule + small head."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.target_model = torch.nn.Linear(64, 64)  # stands in for the 4B target
+        self.fusion_proj = torch.nn.Linear(8, 8)
+
+
+def test_save_checkpoint_excludes_target_model_and_prunes(tmp_path: Path) -> None:
+    """Regression (rung-5): head.state_dict() serialized the entire frozen
+    target into every checkpoint (10.9 GB each), filling the 80 GB pod volume
+    at step 1000. Saved state must exclude target_model.* keys, and older
+    checkpoint-<step> dirs must be pruned after a successful save."""
+    from train.train_eagle3 import save_checkpoint
+
+    head = _TinyHeadWithTarget()
+    optim = torch.optim.AdamW(head.fusion_proj.parameters(), lr=1e-4)
+
+    save_checkpoint(head, optim, step=50, out_dir=tmp_path)  # type: ignore[arg-type]
+    save_checkpoint(head, optim, step=100, out_dir=tmp_path)  # type: ignore[arg-type]
+
+    assert not (tmp_path / "checkpoint-50").exists(), "older checkpoint not pruned"
+    ckpt = tmp_path / "checkpoint-100" / "trainer.pt"
+    assert ckpt.exists()
+    state = torch.load(ckpt, weights_only=False)
+    assert state["step"] == 100
+    assert all(not k.startswith("target_model.") for k in state["head_state"])
+    assert any(k.startswith("fusion_proj.") for k in state["head_state"])

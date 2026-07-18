@@ -24,6 +24,20 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.10] — 2026-07-18 — Patch: checkpoints exclude frozen target + prune (rung-5 finding)
+
+### fix
+- The frozen 4B target is a registered submodule of `EAGLE3Head`, so
+  `head.state_dict()` serialized the entire target (~8 GB bf16) into
+  every checkpoint — 10.9 GB per `trainer.pt`, seven of which filled
+  the 80 GB pod volume and killed seed 42 at step 1000 of the first
+  real 3-seed run ("PytorchStreamWriter failed writing file").
+  Checkpoints now exclude `target_model.*` keys (reconstructable from
+  the HF hub) and prune older `checkpoint-<step>` dirs after each
+  successful save — ~3 GB per checkpoint, bounded per seed.
+
+---
+
 ## [1.5.9] — 2026-07-18 — Patch: no hardcoded .venv python in ablation runner (rung-4 finding)
 
 ### fix

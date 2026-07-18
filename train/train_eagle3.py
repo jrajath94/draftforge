@@ -236,14 +236,37 @@ def save_checkpoint(
     step: int,
     out_dir: Path,
 ) -> None:
+    """Write checkpoint-<step>/trainer.pt and prune older step dirs.
+
+    The frozen target model is a registered submodule of EAGLE3Head, so a
+    naive head.state_dict() serializes the entire 4B target (~8 GB bf16)
+    into every checkpoint — 10.9 GB per save, which filled the 80 GB pod
+    volume at step 1000 of the first real 3-seed run (rung-5 finding).
+    Exclude `target_model.*` keys (reconstructable from the HF hub) and keep
+    only the newest checkpoint-<step> dir per output dir.
+    """
     out = out_dir / f"checkpoint-{step}"
     out.mkdir(parents=True, exist_ok=True)
+    head_state = {
+        k: v for k, v in head.state_dict().items() if not k.startswith("target_model.")
+    }
     state = {
         "step": step,
-        "head_state": head.state_dict(),
+        "head_state": head_state,
         "optim_state": optim.state_dict(),
     }
     torch.save(state, out / "trainer.pt")
+    # Prune older step dirs only after the new save succeeded.
+    import shutil
+
+    for old in out_dir.glob("checkpoint-*"):
+        if old.is_dir() and old != out:
+            try:
+                old_step = int(old.name.split("-", 1)[1])
+            except ValueError:
+                continue
+            if old_step < step:
+                shutil.rmtree(old, ignore_errors=True)
 
 
 def load_dataset(cfg: TrainConfig) -> Dataset:
