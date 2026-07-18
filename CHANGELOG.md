@@ -24,6 +24,22 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.3] — 2026-07-18 — Patch: pipeline data stage + fresh-clone config (smoke-rung findings 2+3)
+
+### fix
+- `scripts/run_full_pipeline.sh` gains stage 0b: prepare + tokenize data
+  (CPU) when `artifacts/data/tokenized/train` is absent. Previously the
+  "full pipeline" had no data stage at all — a fresh pod died at
+  training with FileNotFoundError; data prep lived only in
+  onboard_pod.sh's `--limit 100` smoke test. `SKIP_DATA=1` opts out.
+- `data/config.yaml` default no longer references
+  `./data/finance/finance_qa.jsonl` (a file the repo does not ship,
+  which killed `data.prepare` on any fresh clone). The local-JSONL
+  finance source is now a commented opt-in; SEC EDGAR remains the
+  out-of-the-box finance slice.
+
+---
+
 ## [1.5.2] — 2026-07-18 — Patch: plain-torch launcher (smoke-rung finding)
 
 ### fix

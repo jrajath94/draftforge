@@ -65,6 +65,22 @@ else
   fi
 fi
 
+# ── 0b. Data (prepare + tokenize) ─────────────────────────────────────────────
+# Training reads artifacts/data/tokenized/{train,val}. Historically this stage
+# lived only in onboard_pod.sh's --limit 100 smoke test, so a fresh pod running
+# the "full pipeline" died at stage 1 with FileNotFoundError (found by the
+# rung-3 GPU smoke). CPU-only; runs before any GPU spend.
+if [[ "${SKIP_DATA:-0}" != "1" && "${SKIP_TRAIN:-0}" != "1" ]]; then
+  if [[ -d artifacts/data/tokenized/train ]]; then
+    log "stage 0b: data already prepared (artifacts/data/tokenized/train exists)"
+  else
+    log "stage 0b: data pipeline (prepare + tokenize; CPU)"
+    "${PYTHON:-python}" -m data.prepare --config data/config.yaml
+  fi
+else
+  log "stage 0b: SKIPPED"
+fi
+
 # ── 1. Training ───────────────────────────────────────────────────────────────
 if [[ "${SKIP_TRAIN:-0}" != "1" ]]; then
   if [[ "${SMOKE}" == "1" ]]; then

@@ -23,13 +23,16 @@ sources:
     hf_dataset_id: teknium/OpenHermes-2.5
     max_examples: 30000
     domain: general
-  # Finance slice: provide a local JSONL of Q&A pairs (or supply
-  # hf_dataset_id for FinOpsGym if/when published).
-  - name: finance-qa
-    type: finance
-    path: ./data/finance/finance_qa.jsonl
-    max_examples: 10000
-    domain: finance
+  # Finance slice (local JSONL, opt-in): uncomment and point `path` at a
+  # local Q&A JSONL (or supply hf_dataset_id for FinOpsGym if/when
+  # published). Disabled by default — the file is not part of the repo, and
+  # a fresh clone must run `python -m data.prepare` without edits (the EDGAR
+  # source below provides the finance domain out of the box).
+  # - name: finance-qa
+  #   type: finance
+  #   path: ./data/finance/finance_qa.jsonl
+  #   max_examples: 10000
+  #   domain: finance
   # Finance slice (SEC EDGAR fallback): pulls XBRL company-facts JSON for a
   # default set of 8 large-cap issuers (Apple, Microsoft, Amazon, NVIDIA,
   # IBM, 3M, Wells Fargo, Pfizer). Override `ciks` to narrow the sweep or
