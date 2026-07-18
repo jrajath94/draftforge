@@ -25,7 +25,7 @@ def _base_cfg_dict() -> dict:
             {
                 "name": "sharegpt",
                 "type": "sharegpt",
-                "hf_dataset_id": "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+                "hf_dataset_id": "Aeala/ShareGPT_Vicuna_unfiltered",
                 "max_examples": 1000,
                 "domain": "general",
             }

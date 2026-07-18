@@ -1,7 +1,9 @@
 """ShareGPT-derived loader.
 
-Uses yuhuili/EAGLE3-LLaMA3.1-Instruct-8B's training data (the reference
-set EAGLE-3 was trained on, ~68K ShareGPT-derived examples).
+Default is Aeala/ShareGPT_Vicuna_unfiltered (~68K ShareGPT conversations,
+the corpus family the EAGLE line of work trains on). Note the EAGLE-3
+reference repo `yuhuili/EAGLE3-LLaMA3.1-Instruct-8B` is a MODEL repo —
+`load_dataset` cannot read it (found by the rung-3 GPU smoke).
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from data.types import Example
 
 
 def load_sharegpt(
-    hf_dataset_id: str = "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",
+    hf_dataset_id: str = "Aeala/ShareGPT_Vicuna_unfiltered",
     split: str = "train",
     max_examples: int = 100_000,
 ) -> list[Example]:

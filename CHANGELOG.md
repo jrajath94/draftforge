@@ -24,6 +24,19 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.4] — 2026-07-18 — Patch: real ShareGPT dataset id (smoke-rung finding 4)
+
+### fix
+- ShareGPT source default pointed at
+  `yuhuili/EAGLE3-LLaMA3.1-Instruct-8B` — a MODEL repo, which
+  `load_dataset` cannot read (DatasetNotFoundError on the pod). Default
+  is now `Aeala/ShareGPT_Vicuna_unfiltered` (~68K ShareGPT
+  conversations; verified live against the HF datasets API, and the
+  loader's `conversations`/`from`/`value` normalization matches its
+  schema). Config, tests, and writeup updated.
+
+---
+
 ## [1.5.3] — 2026-07-18 — Patch: pipeline data stage + fresh-clone config (smoke-rung findings 2+3)
 
 ### fix

@@ -78,7 +78,7 @@ The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and
 
 **Dataset.**
 
-- **Raw sources:** ShareGPT (`yuhuili/EAGLE3-LLaMA3.1-Instruct-8B`, 70K cap), OpenHermes (`teknium/OpenHermes-2.5`, 30K cap), finance Q&A (local JSONL, 10K cap).
+- **Raw sources:** ShareGPT (`Aeala/ShareGPT_Vicuna_unfiltered`, 70K cap), OpenHermes (`teknium/OpenHermes-2.5`, 30K cap), finance (SEC EDGAR XBRL, 5K cap; local JSONL opt-in).
 - **Dedup:** exact SHA256 + MinHash (threshold=0.85, num_perm=128) via `data/dedup.py`.
 - **Split:** 80/10/10 stratified by domain, seed=42, `splits_sha256_log.json` for bit-exact reproducibility.
 - **Tokenization:** Qwen3 native tokenizer (`Qwen/Qwen3-4B-Instruct-2507`), `max_seq_len=4096`.

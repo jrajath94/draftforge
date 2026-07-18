@@ -15,7 +15,7 @@ output_dir: ./artifacts/data
 sources:
   - name: eagle3-sharegpt
     type: sharegpt
-    hf_dataset_id: yuhuili/EAGLE3-LLaMA3.1-Instruct-8B
+    hf_dataset_id: Aeala/ShareGPT_Vicuna_unfiltered
     max_examples: 70000
     domain: general
   - name: openhermes-subset
