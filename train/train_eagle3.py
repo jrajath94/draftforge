@@ -266,7 +266,13 @@ def collate_packed(batch: list[dict], max_len: int) -> dict:
     Returns dict with shape:
         input_ids:      (M, max_len) int64 — padded to max_len
         position_ids:   (M, max_len) int64 — per-doc positions
-        attention_mask: (M, max_len, max_len) int64 — block-diagonal
+        attention_mask: (M, 1, max_len, max_len) bool — block-diagonal,
+                        True = attend. The 4-D (B, 1, Q, KV) layout is the
+                        custom-mask shape HF transformers honors as-is; a
+                        3-D (B, L, L) mask is mistaken for a 2-D padding
+                        mask and double-unsqueezed to 5-D inside
+                        masking_utils (RuntimeError on the first real GPU
+                        batch — rung-3 smoke finding).
         doc_starts:     list[list[int]] — one list per pack
 
     M ≤ len(batch) (fewer bins than input rows when packs combine docs).
@@ -276,14 +282,14 @@ def collate_packed(batch: list[dict], max_len: int) -> dict:
         return {
             "input_ids": torch.zeros((0, max_len), dtype=torch.long),
             "position_ids": torch.zeros((0, max_len), dtype=torch.long),
-            "attention_mask": torch.zeros((0, max_len, max_len), dtype=torch.long),
+            "attention_mask": torch.zeros((0, 1, max_len, max_len), dtype=torch.bool),
             "doc_starts": [],
         }
     packs: list[Pack] = pack_sequences(seqs, max_len=max_len)
     n_packs = len(packs)
     input_ids = torch.zeros((n_packs, max_len), dtype=torch.long)
     position_ids = torch.zeros((n_packs, max_len), dtype=torch.long)
-    attention_mask = torch.zeros((n_packs, max_len, max_len), dtype=torch.long)
+    attention_mask = torch.zeros((n_packs, 1, max_len, max_len), dtype=torch.bool)
     doc_starts: list[list[int]] = []
     for i, pack in enumerate(packs):
         pack_len = len(pack.input_ids)
@@ -291,9 +297,9 @@ def collate_packed(batch: list[dict], max_len: int) -> dict:
         # tensor(list) is a touch slower but ABI-stable.
         input_ids[i, :pack_len] = torch.tensor(pack.input_ids.tolist(), dtype=torch.long)
         position_ids[i, :pack_len] = torch.tensor(pack.position_ids.tolist(), dtype=torch.long)
-        attention_mask[i, :pack_len, :pack_len] = torch.tensor(
+        attention_mask[i, 0, :pack_len, :pack_len] = torch.tensor(
             pack.attention_mask.tolist(), dtype=torch.long
-        )
+        ).bool()
         doc_starts.append(list(pack.doc_starts))
     return {
         "input_ids": input_ids,

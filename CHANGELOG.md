@@ -24,6 +24,18 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.6] — 2026-07-18 — Patch: 4-D bool packed attention mask (smoke-rung finding 6)
+
+### fix
+- Packed collate emitted a 3-D `(B, L, L)` int64 block-diagonal mask;
+  HF transformers' masking_utils assumes non-4-D masks are 2-D padding
+  masks and double-unsqueezes → 5-D → RuntimeError inside the Qwen3
+  forward. The collate now emits the custom-mask layout transformers
+  honors as-is: 4-D `(B, 1, L, L)` bool, True = attend. Shape/dtype
+  contract pinned in tests.
+
+---
+
 ## [1.5.5] — 2026-07-18 — Patch: bool label mask (smoke-rung finding 5)
 
 ### fix

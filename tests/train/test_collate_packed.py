@@ -47,7 +47,7 @@ def test_collate_packed_emits_block_diagonal_attention_mask() -> None:
         {"input_ids": list(range(100, 160))},      # 60 tokens
     ]
     out = collate_packed(batch, max_len=200)
-    mask = out["attention_mask"][0]
+    mask = out["attention_mask"][0, 0]
     # doc1 = rows [0:60] (60 tokens, placed first by FFD), doc2 = rows [60:110].
     cross_top_right = mask[0:60, 60:110].sum()
     cross_bottom_left = mask[60:110, 0:60].sum()
@@ -105,9 +105,12 @@ def test_collate_packed_capacity_invariant() -> None:
 
 
 def test_collate_packed_returns_torch_long_tensors() -> None:
-    """The collate output is torch.long — the head expects torch.long input_ids."""
+    """input_ids/position_ids are torch.long; the mask is a 4-D bool custom
+    mask (B, 1, L, L) — the layout HF transformers honors as-is (a 3-D long
+    mask was mistaken for a padding mask and unsqueezed to 5-D on GPU)."""
     batch = [{"input_ids": list(range(1, 21))}]
     out = collate_packed(batch, max_len=64)
     assert out["input_ids"].dtype == torch.long
     assert out["position_ids"].dtype == torch.long
-    assert out["attention_mask"].dtype == torch.long
+    assert out["attention_mask"].dtype == torch.bool
+    assert out["attention_mask"].shape == (1, 1, 64, 64)

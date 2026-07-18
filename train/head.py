@@ -116,7 +116,8 @@ class EAGLE3Head(nn.Module):
 
         Args:
             input_ids: (B, L)
-            attention_mask: (B, L)
+            attention_mask: (B, L) padding mask, or (B, 1, L, L) bool custom
+                mask (packed path — HF honors 4-D masks as-is)
             position_ids: (B, L)
             past_key_values: optional HF cache for incremental decoding
 

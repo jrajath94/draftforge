@@ -92,7 +92,11 @@ def test_packed_smoke_boundary_position_has_minus_100_label() -> None:
         {"input_ids": list(range(100, 160))},  # 60 tokens
     ]
     out = collate_packed(batch, max_len=200)
-    mask = out["attention_mask"][0]
+    # 4-D (M, 1, L, L) bool — the custom-mask layout HF transformers honors
+    # as-is (3-D was mistaken for a padding mask and unsqueezed to 5-D).
+    assert out["attention_mask"].dtype == torch.bool
+    assert out["attention_mask"].shape == (1, 1, 200, 200)
+    mask = out["attention_mask"][0, 0]
     # position 59 (last of doc1) attends to position 60 (first of doc2)?
     # Block-diag invariant: mask[59, 60] must be 0.
     assert mask[59, 60].item() == 0, "block-diag invariant violated at doc boundary"
