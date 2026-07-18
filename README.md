@@ -4,11 +4,11 @@
 [![codecov](https://codecov.io/gh/jrajath94/draftforge/branch/main/graph/badge.svg)](https://codecov.io/gh/jrajath94/draftforge)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Version: v1.3](https://img.shields.io/badge/version-v1.3-blue)](CHANGELOG.md)
+[![Version: v1.6](https://img.shields.io/badge/version-v1.6-blue)](CHANGELOG.md)
 
 EAGLE-3 speculative-decoding draft head training, vLLM/SGLang integration, and acceptance analysis for target model + domain pairs that lack one.
 
-**Status (v1.3):** Cost-reduction cycle complete. Halves per-seed GPU spend via community-cloud pricing + network-volume cache; triples training throughput via sequence packing (FFD bin packing + block-diag attention + per-doc RoPE reset) and concurrent seed runner (N seeds × N GPUs in one pod). All 6 phases shipped + RunPod GPU operator (MCP-driven) + SEC EDGAR fallback loader + 4 v1.3 cost-reduction levers, **285 tests pass** (221 retained from v1.2 + 53 new + 11 from the prior fix-cycle reconciliation), `make audit` clean, GitHub Actions CI green (3/3 jobs). Every CLI is wired (`make verify`), every orchestrator runs end-to-end, the HF release artifacts are placeholders that survive `make card`, the RunPod operator reaches `api.runpod.io` and emits a live GPU price table, and `WRITEUP.md` is filled (with `[NOT YET MEASURED]` markers per the integrity baseline for GPU-bound numbers). The next deliverable is the user's GPU runtime via `make h100-oneliner` to fill the timing tables.
+**Status (v1.6):** The cost-reduction pipeline and three-seed A100 training run are complete. All 6 phases ship with a RunPod operator, SEC EDGAR fallback loader, sequence packing, concurrent seed execution, and explicit spend gates. **309 tests pass locally** on Python 3.12. The measured artifacts establish training loss, held-out greedy agreement, and a short ablation probe. Serving-stack ITL, batch crossover, and domain-shift results remain explicitly unmeasured because the vLLM EAGLE-3 weight-schema adapter is not yet implemented.
 
 ## Overview
 

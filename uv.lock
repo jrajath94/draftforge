@@ -690,7 +690,7 @@ wheels = [
 
 [[package]]
 name = "draftforge"
-version = "1.4.1"
+version = "1.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "datasets" },
