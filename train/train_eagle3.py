@@ -86,6 +86,56 @@ def lr_schedule(step: int, cfg: TrainConfig) -> float:
     return 0.5 * (1.0 + math.cos(math.pi * min(1.0, progress)))
 
 
+def build_masked_labels(
+    input_ids: torch.Tensor,
+    position_ids: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Next-token labels with invalid positions masked to -100.
+
+    Without masking, the naive `labels[t] = input_ids[t+1]` shift leaks
+    cross-doc info into the loss: at a doc boundary, position N (last of doc1)
+    gets label = position N+1 (first of doc2), and pad positions get labels
+    from the next real token. Valid iff: (a) input_ids[t] and input_ids[t+1]
+    are not pad (id=0); AND (b) when packed (position_ids given), t and t+1
+    are contiguous within the same doc — position_ids reset to 0 at each doc
+    boundary, so `position_ids[t+1] == position_ids[t] + 1` is the same-doc
+    signal (the block-diag attention mask can't distinguish this: its
+    offset-1 diagonal is 0 for ALL t).
+
+    Dtype note: every mask term must stay bool — `torch.cat([bool, long])`
+    silently promotes to long, and `torch.where` then raises
+    "expected condition to be a boolean tensor" (found by the rung-3 GPU
+    smoke; this path was inline in main() and untestable before).
+    """
+    labels = torch.full_like(input_ids, -100)
+    labels[..., :-1] = input_ids[..., 1:]
+    labels[..., -1] = -100
+    valid_curr = input_ids != 0
+    valid_next = torch.cat(
+        [
+            input_ids[..., 1:] != 0,
+            torch.zeros_like(input_ids[..., :1], dtype=torch.bool),
+        ],
+        dim=-1,
+    )
+    valid_label = valid_curr & valid_next
+    if position_ids is not None:
+        pos_next = torch.cat(
+            [position_ids[..., 1:], torch.full_like(position_ids[..., :1], -1)],
+            dim=-1,
+        )
+        same_doc_next = pos_next == position_ids + 1
+        # Also require t+1 < pack_len (not predicting into pad).
+        pack_lens = (input_ids != 0).sum(dim=-1)  # (B,)
+        in_bounds = (
+            torch.arange(input_ids.size(-1), device=input_ids.device)[None, :]
+            < pack_lens[:, None]
+        )
+        same_doc_next = same_doc_next & in_bounds
+        valid_label = valid_label & same_doc_next
+    return torch.where(valid_label, labels, torch.full_like(labels, -100))
+
+
 def make_loss_inputs(batch: dict, cfg: TrainConfig) -> tuple[torch.Tensor, torch.Tensor]:
     """Build (input_ids, labels) — labels = input_ids shifted by 1, masked on -100."""
     input_ids = batch["input_ids"]
@@ -411,43 +461,7 @@ def main() -> int:
                 position_ids = position_ids.cuda()
             if attention_mask is not None and torch.cuda.is_available():
                 attention_mask = attention_mask.cuda()
-            # Build labels with valid-position mask. Without this, the naive
-            # `labels[t] = input_ids[t+1]` shift leaks cross-doc info into loss:
-            # at a doc boundary, position N (last of doc1) gets label = position
-            # N+1 (first of doc2). Pad positions also get labels from the next
-            # real token. Both bias the loss.
-            # Valid iff: (a) input_ids[t] and input_ids[t+1] are not pad (id=0),
-            # AND (b) when packed, attention_mask[t, t+1] == 1 (same doc, causal).
-            labels = torch.full_like(input_ids, -100)
-            labels[..., :-1] = input_ids[..., 1:]
-            labels[..., -1] = -100
-            valid_curr = input_ids != 0
-            valid_next = torch.cat(
-                [input_ids[..., 1:] != 0, torch.zeros_like(input_ids[..., :1])], dim=-1
-            )
-            valid_label = valid_curr & valid_next
-            if attention_mask is not None and position_ids is not None:
-                # Packed path: predict t+1 only when t and t+1 are in the same
-                # doc. Block-diag mask is lower-triangular-causal (mask[t,t+1]=0
-                # for ALL t, including intra-doc), so the offset-1 diagonal
-                # cannot distinguish same-doc from cross-doc. position_ids are
-                # the right signal: they reset to 0 at each doc boundary, so
-                # `position_ids[t+1] == position_ids[t] + 1` is True iff the
-                # two positions are contiguous within the same doc.
-                pos_next = torch.cat(
-                    [position_ids[..., 1:], torch.full_like(position_ids[..., :1], -1)],
-                    dim=-1,
-                )
-                same_doc_next = pos_next == position_ids + 1
-                # Also require t+1 < pack_len (not predicting into pad).
-                pack_lens = (input_ids != 0).sum(dim=-1)  # (B,)
-                in_bounds = (
-                    torch.arange(input_ids.size(-1), device=input_ids.device)[None, :]
-                    < pack_lens[:, None]
-                )
-                same_doc_next = same_doc_next & in_bounds
-                valid_label = valid_label & same_doc_next
-            labels = torch.where(valid_label, labels, torch.full_like(labels, -100))
+            labels = build_masked_labels(input_ids, position_ids)
 
             loss = compute_loss(
                 head,

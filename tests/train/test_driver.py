@@ -16,6 +16,7 @@ import pytest
 import torch
 
 from train.train_eagle3 import (
+    build_masked_labels,
     lr_schedule,
     set_seed,
     write_loss_csv,
@@ -150,3 +151,35 @@ def test_compute_loss_passes_position_ids_and_attention_mask_to_head() -> None:
     torch.testing.assert_close(captured["attention_mask"], attention_mask)
     assert loss.dim() == 0
     assert torch.isfinite(loss)
+
+
+# ---- build_masked_labels -----------------------------------------------------
+
+
+def test_build_masked_labels_returns_long_and_no_dtype_error() -> None:
+    """Regression: torch.cat([bool, long]) promoted the mask to long, and
+    torch.where raised 'expected condition to be a boolean tensor' on the
+    first real GPU batch (rung-3 smoke). The call must simply not raise and
+    must return integer labels."""
+    input_ids = torch.tensor([[5, 6, 7, 0]])
+    labels = build_masked_labels(input_ids)
+    assert labels.dtype == input_ids.dtype
+    # last real token predicts pad -> masked; pad position masked; final -100
+    assert labels.tolist() == [[6, 7, -100, -100]]
+
+
+def test_build_masked_labels_masks_doc_boundary_when_packed() -> None:
+    """Packed path: position_ids reset at doc boundaries; the last token of
+    doc1 must NOT get doc2's first token as its label."""
+    # Two docs packed: [10, 11, 12] + [20, 21], then pad.
+    input_ids = torch.tensor([[10, 11, 12, 20, 21, 0]])
+    position_ids = torch.tensor([[0, 1, 2, 0, 1, 0]])
+    labels = build_masked_labels(input_ids, position_ids)
+    # t=2 (last of doc1) crosses into doc2 -> -100. t=4 predicts pad -> -100.
+    assert labels.tolist() == [[11, 12, -100, 21, -100, -100]]
+
+
+def test_build_masked_labels_unpacked_keeps_intra_sequence_shift() -> None:
+    input_ids = torch.tensor([[3, 4, 5, 6]])
+    labels = build_masked_labels(input_ids)
+    assert labels.tolist() == [[4, 5, 6, -100]]

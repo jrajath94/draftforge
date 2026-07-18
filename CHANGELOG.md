@@ -24,6 +24,22 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.5] — 2026-07-18 — Patch: bool label mask (smoke-rung finding 5)
+
+### fix
+- First real GPU batch crashed at the label mask:
+  `torch.cat([bool, long])` silently promoted `valid_next` to long, and
+  `torch.where` raised "expected condition to be a boolean tensor". The
+  mask now stays bool end-to-end.
+
+### refactor
+- Label building extracted from `main()` into `build_masked_labels()` —
+  the block was inline and untestable, which is why the CPU suite never
+  caught the dtype promotion. Three regression tests pin the dtype, the
+  packed doc-boundary masking, and the unpacked shift.
+
+---
+
 ## [1.5.4] — 2026-07-18 — Patch: real ShareGPT dataset id (smoke-rung finding 4)
 
 ### fix
