@@ -24,6 +24,26 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
+## [1.5.2] — 2026-07-18 — Patch: plain-torch launcher (smoke-rung finding)
+
+### fix
+- First real GPU smoke (rung 3, A100) falsified the launch path:
+  `accelerate launch --config_file train/ds_config.json` passed a
+  DeepSpeed JSON where accelerate expects its own config schema (hard
+  error), and `train_eagle3.py` never constructs an `Accelerator`, so
+  the wrapper added nothing. `run_all_seeds.sh` /
+  `run_concurrent_seeds.sh` now launch `python -m train.train_eagle3`
+  directly.
+
+### docs
+- Corrected "DeepSpeed ZeRO-2 training" claims repo-wide (README,
+  WRITEUP, HF card): the trainer is single-process PyTorch bf16;
+  `train/ds_config.json` is retained as an unused template.
+  DECISIONS.md Q8 carries a dated amendment recording the
+  falsification.
+
+---
+
 ## [1.5.1] — 2026-07-17 — Patch: CI checkout needs tags for provenance suite
 
 ### ci

@@ -23,7 +23,7 @@ Drop-in draft head for `vllm serve Qwen/Qwen3-4B-Instruct-2507 --speculative-con
 - Tri-layer fusion: hidden states from layers [7, 18, 29] of Qwen/Qwen3-4B-Instruct-2507 (low/mid/high; rescaled from Qwen3-14B's [8, 20, 32] for 36 vs 40 layers)
 - Direct token prediction (not feature-level)
 - Training-time-test with horizon 4
-- DeepSpeed ZeRO-2, bf16, activation checkpointing
+- Single-process PyTorch, bf16 (frozen 4B target + trainable head fit on one 80GB GPU without ZeRO/offload)
 - Seed protocol: 42, 0, 1234 (≥3 independent runs required before release)
 
 ## Results

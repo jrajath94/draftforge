@@ -13,7 +13,7 @@
 
 ## Abstract
 
-We present DraftForge, an end-to-end reproducible training pipeline for EAGLE-3 speculative-decoding draft heads. The pipeline targets a single base model (**Qwen/Qwen3-4B-Instruct-2507**) with a finance-domain emphasis and ships with a CPU-testable data preparation stage, a single-GPU DeepSpeed ZeRO-2 training driver, a four-preset ablation harness, vLLM/SGLang invocation builders, a geometric acceptance-length model, a batch-size crossover analyser, and a HuggingFace card renderer. The architectural contribution is the **batch-size crossover point B\*** as the operational knob for production routers: speculation accelerates decoding for batch sizes ≤ B\* and is overhead-dominated for larger batches. The engineering contribution is that every figure, table, and number in this writeup traces to a `make bench` invocation (or is marked `[NOT YET MEASURED]`). At v1.0 we release the codebase; trained weights and timing measurements are the next-step deliverable.
+We present DraftForge, an end-to-end reproducible training pipeline for EAGLE-3 speculative-decoding draft heads. The pipeline targets a single base model (**Qwen/Qwen3-4B-Instruct-2507**) with a finance-domain emphasis and ships with a CPU-testable data preparation stage, a single-GPU PyTorch bf16 training driver, a four-preset ablation harness, vLLM/SGLang invocation builders, a geometric acceptance-length model, a batch-size crossover analyser, and a HuggingFace card renderer. The architectural contribution is the **batch-size crossover point B\*** as the operational knob for production routers: speculation accelerates decoding for batch sizes ≤ B\* and is overhead-dominated for larger batches. The engineering contribution is that every figure, table, and number in this writeup traces to a `make bench` invocation (or is marked `[NOT YET MEASURED]`). At v1.0 we release the codebase; trained weights and timing measurements are the next-step deliverable.
 
 ---
 
@@ -71,7 +71,7 @@ The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and
 - **Batch size:** 1 per device, gradient accumulation 8 steps → effective batch 8.
 - **Mixed precision:** bfloat16 (no fp16; numerical overflow risk with Qwen3 layer norms).
 - **Gradient checkpointing:** enabled (trades ~30% compute for ~40% memory headroom).
-- **DeepSpeed:** ZeRO-2 single-GPU (`train/ds_config.json`).
+- **Launcher:** single-process PyTorch bf16 (`python -m train.train_eagle3`); `train/ds_config.json` retained as an unused ZeRO template (DECISIONS.md Q8 amendment).
 - **Hardware target:** H100 NVL 94GB, bf16, spot rental at $2-3/hr. Qwen3-4B base ≈ 8 GB bf16; head + optimizer states fit comfortably in 24 GB on a single H100, so 1 GPU is sufficient without ZeRO-3 offload.
 - **Wallclock per seed:** ~3–4 hours (2000 steps × ~6s/step with TTT — smaller model vs Qwen3-14B, faster per step).
 - **Per-seed cost:** ~$10–15 spot.
@@ -453,9 +453,9 @@ bash scripts/upload_hf.sh \
 **Key files:**
 
 - `train/head.py` — `EAGLE3Head` module (tri-layer fusion, fresh decoder blocks, lm_head copy).
-- `train/train_eagle3.py` — training loop (DeepSpeed, training-time-test, loss logging).
+- `train/train_eagle3.py` — training loop (plain torch bf16, training-time-test, loss logging).
 - `train/config.yaml` — pydantic-validated training config (model `Qwen/Qwen3-4B-Instruct-2507`, `eagle3.layer_indices: [7, 18, 29]`).
-- `train/ds_config.json` — DeepSpeed ZeRO-2 single-GPU.
+- `train/ds_config.json` — DeepSpeed ZeRO-2 template (not consumed by the current launcher; Q8 amendment).
 - `data/prepare.py` — ingest, dedup, stratified split (typer CLI).
 - `data/dedup.py` — exact (SHA256) + MinHash dedup.
 - `data/sources/{sharegpt,openhermes,finance}.py` — source loaders.

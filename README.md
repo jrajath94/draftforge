@@ -136,11 +136,11 @@ recovers 3-7x throughput on finance traces where median doc length is far below
 
 ```bash
 # Default config flow (opt-in via CLI flag):
-accelerate launch --config_file train/ds_config.json -m train.train_eagle3 \
+python -m train.train_eagle3 \
     --config train/config.yaml --sequence-pack
 
 # Override bin capacity (range 128..32768, manually validated):
-accelerate launch --config_file train/ds_config.json -m train.train_eagle3 \
+python -m train.train_eagle3 \
     --config train/config.yaml --sequence-pack --sequence-pack-max-len 2048
 ```
 
@@ -175,7 +175,7 @@ draftforge-train \
   --output checkpoints/
 ```
 
-Trains with DeepSpeed ZeRO-2 offloading on a single GPU. Checkpoints every 500 steps.
+Trains with single-process PyTorch bf16 on a single GPU. Checkpoints every 500 steps.
 
 ### Evaluation
 
@@ -409,7 +409,7 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 
 - **Bench numbers are `[NOT YET MEASURED]`.** Until `make bench` runs on H100, all result rows are placeholders.
 - **Single target model.** `Qwen/Qwen3-4B-Instruct-2507` only. Tri-layer indices `[7, 18, 29]` are model-specific (rescaled from Qwen3-14B's `[8, 20, 32]` for 36 vs 40 layers).
-- **Single-GPU training.** DeepSpeed ZeRO-2 single-GPU, not multi-node.
+- **Single-GPU training.** Single-process PyTorch bf16, not multi-node. `train/ds_config.json` is an unused ZeRO template (see DECISIONS.md Q8 amendment).
 - **Inference runtimes.** vLLM + SGLang only. Exllamav2, TensorRT-LLM, llama.cpp not benchmarked.
 - **Finance corpus source.** Depends on FinOpsGym availability + license. Fallback: SEC EDGAR-derived Q&A.
 - **EAGLE-3 recipe pinned** to the version current as of 2026-07. Upstream changes may break replication.

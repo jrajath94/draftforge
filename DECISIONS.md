@@ -140,6 +140,8 @@ The rescale function is `round(fraction × num_hidden_layers)` for `fraction ∈
 
 **Tradeoff.** ZeRO-2 single-GPU caps training at one accelerator. For 70B+ backbones (out of scope here) we would need ZeRO-3 with optimizer offload or FSDP. Documented as a limitation in `WRITEUP.md` §4.4.
 
+**Amended 2026-07-18 (v1.5.2, first real GPU smoke).** The smoke rung falsified this decision's premise: `train_eagle3.py` never constructs an accelerate `Accelerator`, so `accelerate launch --config_file train/ds_config.json` (a) passed a DeepSpeed JSON where accelerate expects its own config schema (hard error on the pod) and (b) would have added nothing even if accepted. Launchers now use plain `python -m train.train_eagle3`; the trainer is single-process torch bf16, which the 4B frozen target + head fits comfortably. `train/ds_config.json` is retained as a template for a future ZeRO integration but is not consumed by the current training path. Doc claims of "DeepSpeed ZeRO-2 training" were corrected repo-wide in the same commit.
+
 ---
 
 ## Q9. Why 80/10/10 stratified split (not 90/10 or random)?

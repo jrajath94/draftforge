@@ -58,7 +58,7 @@ Each seed writes to `results/train/<seed>/`:
 |------|---------|
 | `config.py` | `TrainConfig` pydantic model; `load_config` |
 | `head.py` | `EAGLE3Head` nn.Module (tri-layer fusion + decoder + lm_head) |
-| `train_eagle3.py` | training driver (CLI); invoked via `accelerate launch` |
+| `train_eagle3.py` | training driver (CLI); invoked via `python -m train.train_eagle3` (see `run_all_seeds.sh`) |
 | `ds_config.json` | DeepSpeed ZeRO-2 single-GPU config |
 | `run_all_seeds.sh` | multi-seed wrapper |
 | `config.yaml` (TODO) | sample training config — fill in dataset.train_dir path |

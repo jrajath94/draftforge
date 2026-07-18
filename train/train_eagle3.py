@@ -1,8 +1,7 @@
 """EAGLE-3 training driver.
 
 Usage:
-    accelerate launch --config_file train/ds_config.json \\
-        train/train_eagle3.py --config train/config.yaml --seed 42
+    python -m train.train_eagle3 --config train/config.yaml --seed 42
 
 Implements:
 - Target model: Qwen/Qwen3-4B-Instruct-2507 in bf16, frozen
@@ -255,7 +254,7 @@ def collate_packed(batch: list[dict], max_len: int) -> dict:
 
 
 def main() -> int:
-    """Entry point invoked by `accelerate launch` or `python -m train.train_eagle3`."""
+    """Entry point invoked by `python -m train.train_eagle3` (see run_all_seeds.sh)."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True, help="Path to train config YAML.")
     ap.add_argument("--seed", type=int, default=None, help="Override config seed.")

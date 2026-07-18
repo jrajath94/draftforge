@@ -78,10 +78,10 @@ for i in "${!seeds[@]}"; do
             echo "[stub] seed=${DRAFTFORGE_SEED} gpu=${CUDA_VISIBLE_DEVICES} step=0..max=${DRAFTFORGE_MAX}"
             exit 0
         else
-            exec accelerate launch \
-                --num_processes 1 \
-                --mixed_precision bf16 \
-                --config_file "${DS_CONFIG}" \
+            # Plain launch — see train/run_all_seeds.sh: the trainer is a
+            # self-contained torch script; accelerate added nothing and its
+            # --config_file rejected the DeepSpeed JSON schema.
+            exec "${PYTHON:-python}" \
                 -m train.train_eagle3 \
                 --config "${CONFIG}" \
                 --seed "${seed}" \

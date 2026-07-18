@@ -36,10 +36,11 @@ for seed in ${SEEDS}; do
   echo "=========================================="
 
   set +e
-  accelerate launch \
-    --num_processes "${NUM_GPUS:-1}" \
-    --mixed_precision bf16 \
-    --config_file "${DS_CONFIG}" \
+  # Plain single-process launch: train_eagle3.py is a self-contained torch
+  # script (bf16 handled in-script; it does not construct an accelerate
+  # Accelerator, so `accelerate launch --config_file <deepspeed.json>` both
+  # mismatched config schemas and added nothing).
+  "${PYTHON:-python}" \
     -m train.train_eagle3 \
     --config "${CONFIG}" \
     --seed "${seed}" \
