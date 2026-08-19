@@ -452,6 +452,12 @@ Coverage target: 75% on data, train, ablate, eval modules (GPU-intensive paths t
 
 DraftForge itself does not yet have a release DOI; the HF model card serves as the canonical citation once training runs complete.
 
+## Evidence policy
+
+Measured agreement results are tied to the listed model, seed count, and
+evaluation configuration. Serving-latency or speedup claims are intentionally
+left open until the weight-schema adapter and runtime benchmark are complete.
+
 ## License
 
 MIT
