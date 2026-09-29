@@ -1,4 +1,4 @@
-# serve/ — vLLM + SGLang integration
+# serve/ - vLLM + SGLang integration
 
 Phase 4 deliverable: ship both runtimes loading the trained draft head.
 
