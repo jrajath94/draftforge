@@ -47,15 +47,15 @@ The following are in scope:
 - Code that executes on a user machine or pod (data pipeline, training driver,
   release CLI)
 - Shell scripts shipped under `scripts/` (especially `onboard_pod.sh` and
-  `run_full_pipeline.sh` — these run on rented compute with network access)
+  `run_full_pipeline.sh` - these run on rented compute with network access)
 - HuggingFace model card generation logic
-- Sample fixtures under `data/fixtures/` — these must NEVER contain real
+- Sample fixtures under `data/fixtures/` - these must NEVER contain real
   secrets or real user data; we publish only synthetic content
 
 Out of scope:
 
 - Issues in upstream dependencies (`transformers`, `datasets`, `pydantic`,
-  `vllm`, `sglang`, etc.) — please report those to the relevant upstream
+  `vllm`, `sglang`, etc.) - please report those to the relevant upstream
   project
 - Theoretical attacks that require physical access to the user's machine
 - Social engineering
