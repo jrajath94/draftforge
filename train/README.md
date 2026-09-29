@@ -1,4 +1,4 @@
-# train/ — EAGLE-3 draft head training
+# train/ - EAGLE-3 draft head training
 
 Trains an EAGLE-3 draft head for `Qwen/Qwen3-4B-Instruct-2507` with
 multi-layer feature fusion, training-time-test, and direct token
@@ -20,14 +20,14 @@ token logits  →  CE loss on next token
 ```
 
 The draft head is ~`3·hidden² · (1 + N_decoder_blocks) + vocab·hidden`
-parameters — hundreds of millions, not billions. Backprop flows only
+parameters - hundreds of millions, not billions. Backprop flows only
 through the head; the target is a frozen teacher.
 
 Training-time-test (every 100 steps): the head samples its own drafts for a
 short horizon, conditions on those drafts, and recomputes CE loss. This
 extends the effective context past teacher forcing and reduces
 training/inference distribution shift. Direct token prediction means we
-predict the same token ids the teacher would — no hidden-state regression.
+predict the same token ids the teacher would - no hidden-state regression.
 
 ## Quickstart
 
@@ -46,11 +46,11 @@ SEEDS="42 7 99" bash train/run_all_seeds.sh
 ```
 
 Each seed writes to `results/train/<seed>/`:
-- `loss_curve.csv` — per-step loss (commit and plot this)
-- `loss_curve.json` — same data, JSON
-- `checkpoint-<step>/trainer.pt` — periodic snapshots (latest + best)
-- `config.yaml` — frozen config used for that run
-- `train.log` — full stdout/stderr
+- `loss_curve.csv` - per-step loss (commit and plot this)
+- `loss_curve.json` - same data, JSON
+- `checkpoint-<step>/trainer.pt` - periodic snapshots (latest + best)
+- `config.yaml` - frozen config used for that run
+- `train.log` - full stdout/stderr
 
 ## Files
 
@@ -61,14 +61,14 @@ Each seed writes to `results/train/<seed>/`:
 | `train_eagle3.py` | training driver (CLI); invoked via `python -m train.train_eagle3` (see `run_all_seeds.sh`) |
 | `ds_config.json` | DeepSpeed ZeRO-2 single-GPU config |
 | `run_all_seeds.sh` | multi-seed wrapper |
-| `config.yaml` (TODO) | sample training config — fill in dataset.train_dir path |
+| `config.yaml` (TODO) | sample training config - fill in dataset.train_dir path |
 
 ## Limitations
 
 - Single-GPU only (multi-node out of scope per project budget/spec).
-- bf16 only — fp16 risks numerical overflow on Qwen, per official EAGLE warning.
+- bf16 only - fp16 risks numerical overflow on Qwen, per official EAGLE warning.
 - Tri-layer `[7, 18, 29]` is the default for the 36-layer 4B target; empirical validation in Phase 3 (ablation).
-- No curriculum, no dynamic top-k, no custom CUDA — minimal EAGLE-3 baseline.
+- No curriculum, no dynamic top-k, no custom CUDA - minimal EAGLE-3 baseline.
 
 ## Citations
 
