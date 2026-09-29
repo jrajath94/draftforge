@@ -4,11 +4,11 @@ HuggingFace release artifacts for the trained DraftForge draft head.
 
 ## What's here
 
-- `hf_card.md` — HuggingFace model card template (parameterized by `$HEAD_NAME`, `$TARGET_MODEL`, `$RESULTS_SECTION`; `$MANIFEST_JSON` remains available for raw-JSON templates)
-- `make_card.py` — render the card from a results manifest
-- `bench.sh` — one-command reproduction: serves target model in vLLM, sweeps batch/temp/domain, plots acceptance
-- `writeup_template.md` — 1.5K-word analysis skeleton
-- `aggregate.py` — collect JSON + CSV from `results/` into a single `manifest.json`
+- `hf_card.md` - HuggingFace model card template (parameterized by `$HEAD_NAME`, `$TARGET_MODEL`, `$RESULTS_SECTION`; `$MANIFEST_JSON` remains available for raw-JSON templates)
+- `make_card.py` - render the card from a results manifest
+- `bench.sh` - one-command reproduction: serves target model in vLLM, sweeps batch/temp/domain, plots acceptance
+- `writeup_template.md` - 1.5K-word analysis skeleton
+- `aggregate.py` - collect JSON + CSV from `results/` into a single `manifest.json`
 
 ## Usage
 
@@ -30,9 +30,9 @@ TARGET_MODEL=Qwen/Qwen3-4B-Instruct-2507 HEAD_DIR=./checkpoints/head bash releas
 ```
 
 Outputs land in `./results/eval/`:
-- `itl_baseline.json` — non-speculative ITL per batch
-- `itl_spec.json` — speculative ITL per batch
-- `acceptance_grid.csv` — domain × temp × batch × acceptance
+- `itl_baseline.json` - non-speculative ITL per batch
+- `itl_spec.json` - speculative ITL per batch
+- `acceptance_grid.csv` - domain × temp × batch × acceptance
 - `acceptance_curves.png`, `itl_reduction.png`
 
 ### Aggregate results
