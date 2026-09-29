@@ -2,10 +2,10 @@
 
 **Authors:** Rajath John Bosco
 **Date:** 2026-07-09
-**Status:** v1.0 — codebase complete; GPU-bound measurements pending
+**Status:** v1.0 - codebase complete; GPU-bound measurements pending
 **Companion artifacts:** `HF_CARD.md` (rendered from `release/hf_card.md`), `release/WRITEUP_TEMPLATE.md` (template with author markers), `results/` (per-seed loss curves, ablation comparison, acceptance grid).
 
-> **Reading this writeup honestly.** Every numeric value labelled `[NOT YET MEASURED]` is a placeholder for a result that requires a rented H100 to produce. The codebase, the data pipeline, the training driver, the ablation runner, the vLLM/SGLang integration, the acceptance analysis, the manifest aggregator, and the HF card renderer are all shipped and tested (CPU-shape + pure-analytics). What's NOT shipped is the trained weight tensor and the timing numbers that depend on it. The "completed version" of this project is the code, the orchestrator, and the artifacts; the measured numbers are the user's GPU-runtime deliverable. Target model is **Qwen/Qwen3-4B-Instruct-2507** (36 hidden layers, hidden_size=2560, vocab=151936, ~4B parameters, open-weight — no HF token required). Tri-layer fusion indices are `[7, 18, 29]` (rescaled from a 40-layer choice of `[8, 20, 32]` so the fractional depths match: 19% / 50% / 81%).
+> **Reading this writeup honestly.** Every numeric value labelled `[NOT YET MEASURED]` is a placeholder for a result that requires a rented H100 to produce. The codebase, the data pipeline, the training driver, the ablation runner, the vLLM/SGLang integration, the acceptance analysis, the manifest aggregator, and the HF card renderer are all shipped and tested (CPU-shape + pure-analytics). What's NOT shipped is the trained weight tensor and the timing numbers that depend on it. The "completed version" of this project is the code, the orchestrator, and the artifacts; the measured numbers are the user's GPU-runtime deliverable. Target model is **Qwen/Qwen3-4B-Instruct-2507** (36 hidden layers, hidden_size=2560, vocab=151936, ~4B parameters, open-weight - no HF token required). Tri-layer fusion indices are `[7, 18, 29]` (rescaled from a 40-layer choice of `[8, 20, 32]` so the fractional depths match: 19% / 50% / 81%).
 >
 > **Reproducer's quickstart.** A reviewer without a GPU can run `make all` and produce every artifact this writeup references except the trained weights (≈30 seconds on a laptop). To go from zero to measured numbers: `make h100-oneliner` (Section 9). To produce finance-domain data without HF auth: the `edgar` source type in `data/config.yaml` pulls XBRL company-facts from SEC EDGAR (free, no auth).
 
@@ -33,7 +33,7 @@ We present DraftForge, an end-to-end reproducible training pipeline for EAGLE-3 
 - **Contribution-3 (planned).** Quantification of batch-size crossover point `B*` where speculation stops helping, derived from a 2×3×5 acceptance grid (2 domains × 3 temperatures × 5 batch sizes). `[NOT YET MEASURED]`.
 - **Contribution-4 (planned).** Tri-layer fusion `[7, 18, 29]` (rescaled to Qwen3-4B's 36-layer depth) outperforms final-layer-only `[35]` by `[A]%` acceptance (ablation, 3 seeds, statistically significant at p<0.05). `[NOT YET MEASURED]`.
 
-**Outline.** Section 2 details the architecture, training procedure, ablation, and evaluation. Section 3 reports results across all three axes (domain, temperature, batch) — most values are `[NOT YET MEASURED]` at v1.0. Section 4 discusses mechanisms, limitations, and production implications. Section 5 lists the exact reproduction commands. Section 6 covers HuggingFace release. Section 7 catalogs the code surface. Section 8 gives the citation.
+**Outline.** Section 2 details the architecture, training procedure, ablation, and evaluation. Section 3 reports results across all three axes (domain, temperature, batch) - most values are `[NOT YET MEASURED]` at v1.0. Section 4 discusses mechanisms, limitations, and production implications. Section 5 lists the exact reproduction commands. Section 6 covers HuggingFace release. Section 7 catalogs the code surface. Section 8 gives the citation.
 
 ---
 
@@ -51,13 +51,13 @@ target.layers[29]  ─┘
 
 **Why tri-layer?** Layer 7 (early, ~19% depth) captures syntactic patterns; layer 18 (mid, 50% depth) captures semantic features; layer 29 (high, ~81% depth) captures task-specific signals. This three-tap choice follows Li et al. (NeurIPS 2025) for ~36–40 layer backbones. The ablation in Section 2.3 confirms it beats a single late-layer tap on our workload.
 
-**Layer-index rescale note.** The original Qwen3-14B EAGLE-3 paper uses `[8, 20, 32]` for a 40-layer backbone (20% / 50% / 80% depth). Qwen3-4B has 36 layers; preserving the same fractional coverage yields `[round(0.20·36)=7, round(0.50·36)=18, round(0.80·36)=29]` → 19.4% / 50.0% / 80.6% — within one layer of the original ratio at each tap. The ablation (§2.3) sets `low_layer=[7]`, `mid_layer=[18]`, `final_layer=[35]`, and the `tri_layer` preset uses `[7, 18, 29]`.
+**Layer-index rescale note.** The original Qwen3-14B EAGLE-3 paper uses `[8, 20, 32]` for a 40-layer backbone (20% / 50% / 80% depth). Qwen3-4B has 36 layers; preserving the same fractional coverage yields `[round(0.20·36)=7, round(0.50·36)=18, round(0.80·36)=29]` → 19.4% / 50.0% / 80.6% - within one layer of the original ratio at each tap. The ablation (§2.3) sets `low_layer=[7]`, `mid_layer=[18]`, `final_layer=[35]`, and the `tri_layer` preset uses `[7, 18, 29]`.
 
 **Training-time-test.** Every `training_time_test_every=100` training steps, the head samples its own drafts for `training_time_test_horizon=5` tokens, feeds them back through the head, and computes the loss on the self-generated sequence. This extends the effective horizon beyond teacher forcing and closes the train/inference gap.
 
 **Loss.** Cross-entropy on next-token prediction (direct logits, no distillation temperature).
 
-The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and the training driver in `train/train_eagle3.py` (~200 lines). The forward pass asserts the hidden-state tuple length matches the expected `num_hidden_layers + 1` (off-by-one in layer index is a $70+ bug — assert before indexing).
+The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and the training driver in `train/train_eagle3.py` (~200 lines). The forward pass asserts the hidden-state tuple length matches the expected `num_hidden_layers + 1` (off-by-one in layer index is a $70+ bug - assert before indexing).
 
 ### 2.2 Training Procedure
 
@@ -65,7 +65,7 @@ The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and
 
 - **Model:** `Qwen/Qwen3-4B-Instruct-2507` (36 hidden layers, hidden_size=2560, vocab=151936, ~4B parameters, open-weight).
 - **Target:** frozen (no gradient through target model; `requires_grad=False` on all target params).
-- **Head:** trainable (~430M parameters — `fusion_proj` (3·2560→2560 ≈ 19.7M) + 1 decoder block (~26M) + `lm_head` copy (2560×151936 ≈ 389M, frozen copy but counted in head init)).
+- **Head:** trainable (~430M parameters - `fusion_proj` (3·2560→2560 ≈ 19.7M) + 1 decoder block (~26M) + `lm_head` copy (2560×151936 ≈ 389M, frozen copy but counted in head init)).
 - **Optimizer:** AdamW (lr=1e-4, betas=(0.9, 0.95), weight_decay=0.1, eps=1e-8).
 - **Scheduler:** linear warmup over 100 steps, then cosine decay to 0 over `max_steps=2000`.
 - **Batch size:** 1 per device, gradient accumulation 8 steps → effective batch 8.
@@ -73,7 +73,7 @@ The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and
 - **Gradient checkpointing:** enabled (trades ~30% compute for ~40% memory headroom).
 - **Launcher:** single-process PyTorch bf16 (`python -m train.train_eagle3`); `train/ds_config.json` retained as an unused ZeRO template (DECISIONS.md Q8 amendment).
 - **Hardware target:** H100 NVL 94GB, bf16, spot rental at $2-3/hr. Qwen3-4B base ≈ 8 GB bf16; head + optimizer states fit comfortably in 24 GB on a single H100, so 1 GPU is sufficient without ZeRO-3 offload.
-- **Wallclock per seed:** ~3–4 hours (2000 steps × ~6s/step with TTT — smaller model vs Qwen3-14B, faster per step).
+- **Wallclock per seed:** ~3–4 hours (2000 steps × ~6s/step with TTT - smaller model vs Qwen3-14B, faster per step).
 - **Per-seed cost:** ~$10–15 spot.
 
 **Dataset.**
@@ -98,7 +98,7 @@ The implementation lives in `train/head.py` (`EAGLE3Head` class, ~170 lines) and
 | `low_layer`    | [7]              | 1             | Single early-layer tap. |
 | `mid_layer`    | [18]             | 1             | Single mid-layer tap. |
 
-**Per variant:** ≥3 seeds (default: 42, 123, 456) with different random initializations. The only varying hyperparameter is the random seed for head init (decoder block Xavier + fusion_proj Kaiming). Data splits, optimizer, scheduler, dataset — all held constant.
+**Per variant:** ≥3 seeds (default: 42, 123, 456) with different random initializations. The only varying hyperparameter is the random seed for head init (decoder block Xavier + fusion_proj Kaiming). Data splits, optimizer, scheduler, dataset - all held constant.
 
 **Metric:** mean acceptance length (`± std`), ITL reduction (ms), training loss convergence (final-step CE).
 
@@ -134,7 +134,7 @@ Measure acceptance length under varying conditions:
 **Baseline:** `Qwen/Qwen3-4B-Instruct-2507` without speculation (autoregressive, KV-cached).
 **Speculative:** same model with EAGLE-3 draft head (`num_speculative_tokens=4`).
 
-Results (per domain, temperature, batch — all measured on H100 NVL 94GB, bf16):
+Results (per domain, temperature, batch - all measured on H100 NVL 94GB, bf16):
 
 | Condition              | Baseline ITL (ms) | Spec ITL (ms) | Reduction | Acceptance |
 |------------------------|-------------------|---------------|-----------|------------|
@@ -206,8 +206,8 @@ Beyond batch size `[NOT YET MEASURED]`, speculation no longer helps:
 
 The crossover is expected to be **sharp** (a 1-2 batch-step transition from speedup to neutral-or-regression) because draft and verify scale differently with batch:
 
-- **Draft:** O(B · d_model · d_decoder) — compute-bound at small B.
-- **Verify:** O(B · L · d_model) — compute-bound at large B, dominated by KV-cache memory bandwidth.
+- **Draft:** O(B · d_model · d_decoder) - compute-bound at small B.
+- **Verify:** O(B · L · d_model) - compute-bound at large B, dominated by KV-cache memory bandwidth.
 
 **Implication for production:** Use speculation for small-batch workloads (b ≤ B\*), disable for large-batch requests. vLLM/SGLang routers should conditionally enable based on `len(active_sequences)` at request time.
 
@@ -422,12 +422,12 @@ Generates a CPU-only end-to-end run against `data/fixtures/sample_finance.jsonl`
 
 **Files in the release directory** (per `release/hf_config.json` + `release/training_config.yaml`):
 
-- `config.json` — EAGLE-3 head architecture spec (`layer_indices=[7,18,29]`, `num_decoder_layers=1`, `hidden_size=2560`, `target_model=Qwen/Qwen3-4B-Instruct-2507`).
-- `model.safetensors` — trained weights (bf16, head-only; target model not re-uploaded). **Placeholder at v1.0.**
-- `training_config.yaml` — reproducible hyperparams (lr, betas, weight_decay, warmup, max_steps, batch, seed).
-- `README.md` — this writeup (rendered to HF model card format by `release/make_card.py`).
-- `training_log.csv` — loss curves for all seeds (`step,train_loss,val_loss,seed`). **Not present at v1.0.**
-- `LICENSE` — MIT.
+- `config.json` - EAGLE-3 head architecture spec (`layer_indices=[7,18,29]`, `num_decoder_layers=1`, `hidden_size=2560`, `target_model=Qwen/Qwen3-4B-Instruct-2507`).
+- `model.safetensors` - trained weights (bf16, head-only; target model not re-uploaded). **Placeholder at v1.0.**
+- `training_config.yaml` - reproducible hyperparams (lr, betas, weight_decay, warmup, max_steps, batch, seed).
+- `README.md` - this writeup (rendered to HF model card format by `release/make_card.py`).
+- `training_log.csv` - loss curves for all seeds (`step,train_loss,val_loss,seed`). **Not present at v1.0.**
+- `LICENSE` - MIT.
 
 **Model Card (rendered):** `HF_CARD.md` is the output of `release/make_card.py` substituting `$TARGET_MODEL`, `$HEAD_NAME`, and `$RESULTS_SECTION` (human-readable tables when benchmark artifacts exist, an explicit `[NOT YET MEASURED]` marker when they don't) in `release/hf_card.md`.
 
@@ -452,52 +452,52 @@ bash scripts/upload_hf.sh \
 
 **Key files:**
 
-- `train/head.py` — `EAGLE3Head` module (tri-layer fusion, fresh decoder blocks, lm_head copy).
-- `train/train_eagle3.py` — training loop (plain torch bf16, training-time-test, loss logging).
-- `train/config.yaml` — pydantic-validated training config (model `Qwen/Qwen3-4B-Instruct-2507`, `eagle3.layer_indices: [7, 18, 29]`).
-- `train/ds_config.json` — DeepSpeed ZeRO-2 template (not consumed by the current launcher; Q8 amendment).
-- `data/prepare.py` — ingest, dedup, stratified split (typer CLI).
-- `data/dedup.py` — exact (SHA256) + MinHash dedup.
-- `data/sources/{sharegpt,openhermes,finance}.py` — source loaders.
-- `ablate/configs.py` — 4 fusion presets (tri_layer `[7,18,29]`, final_layer `[35]`, low_layer `[7]`, mid_layer `[18]`).
-- `ablate/compare.py` — variant comparison aggregator.
-- `ablate/run_ablation.sh` — orchestrator for 4 presets × ≥3 seeds.
-- `serve/integrate.py` — vLLM + SGLang invocation builders.
-- `serve/bench.py` — command builders for `vllm bench latency` + `sglang.bench_one_batch`.
-- `eval/acceptance.py` — geometric EAL + `crossover_batch_size` model + serve JSON walker.
-- `eval/crossover_analysis.py` — per-key B\* report generator.
-- `eval/plot.py` — ITL reduction bar chart + acceptance curves.
-- `release/aggregate.py` — results → `manifest.json` (HF upload manifest).
-- `release/make_card.py` — `manifest.json` + template → HF model card markdown.
-- `release/hf_config.json` — EAGLE-3 head config for HF upload.
-- `release/training_config.yaml` — hyperparams for HF upload.
-- `release/head.placeholder.safetensors` — 164-byte placeholder (rejected by upload guard).
-- `release/writeup_template.md` — this writeup as a template (with placeholder markers for the author).
-- `release/bench.sh` — orchestrator for vLLM + SGLang bench commands.
-- `scripts/run_full_pipeline.sh` — one-command reproduction.
-- `scripts/onboard_pod.sh` — RunPod pod setup (project namespacing, HF cache, GPU preflight).
-- `scripts/upload_hf.sh` — HuggingFace upload wrapper with placeholder guard.
-- `scripts/verify.sh` — CLI smoke walker (proves every argparse/typer binding).
-- `scripts/run_demo.py` — CPU pipeline orchestrator for `make demo`.
+- `train/head.py` - `EAGLE3Head` module (tri-layer fusion, fresh decoder blocks, lm_head copy).
+- `train/train_eagle3.py` - training loop (plain torch bf16, training-time-test, loss logging).
+- `train/config.yaml` - pydantic-validated training config (model `Qwen/Qwen3-4B-Instruct-2507`, `eagle3.layer_indices: [7, 18, 29]`).
+- `train/ds_config.json` - DeepSpeed ZeRO-2 template (not consumed by the current launcher; Q8 amendment).
+- `data/prepare.py` - ingest, dedup, stratified split (typer CLI).
+- `data/dedup.py` - exact (SHA256) + MinHash dedup.
+- `data/sources/{sharegpt,openhermes,finance}.py` - source loaders.
+- `ablate/configs.py` - 4 fusion presets (tri_layer `[7,18,29]`, final_layer `[35]`, low_layer `[7]`, mid_layer `[18]`).
+- `ablate/compare.py` - variant comparison aggregator.
+- `ablate/run_ablation.sh` - orchestrator for 4 presets × ≥3 seeds.
+- `serve/integrate.py` - vLLM + SGLang invocation builders.
+- `serve/bench.py` - command builders for `vllm bench latency` + `sglang.bench_one_batch`.
+- `eval/acceptance.py` - geometric EAL + `crossover_batch_size` model + serve JSON walker.
+- `eval/crossover_analysis.py` - per-key B\* report generator.
+- `eval/plot.py` - ITL reduction bar chart + acceptance curves.
+- `release/aggregate.py` - results → `manifest.json` (HF upload manifest).
+- `release/make_card.py` - `manifest.json` + template → HF model card markdown.
+- `release/hf_config.json` - EAGLE-3 head config for HF upload.
+- `release/training_config.yaml` - hyperparams for HF upload.
+- `release/head.placeholder.safetensors` - 164-byte placeholder (rejected by upload guard).
+- `release/writeup_template.md` - this writeup as a template (with placeholder markers for the author).
+- `release/bench.sh` - orchestrator for vLLM + SGLang bench commands.
+- `scripts/run_full_pipeline.sh` - one-command reproduction.
+- `scripts/onboard_pod.sh` - RunPod pod setup (project namespacing, HF cache, GPU preflight).
+- `scripts/upload_hf.sh` - HuggingFace upload wrapper with placeholder guard.
+- `scripts/verify.sh` - CLI smoke walker (proves every argparse/typer binding).
+- `scripts/run_demo.py` - CPU pipeline orchestrator for `make demo`.
 
 **Test surface:** `pytest` (target coverage ≥75% per CLAUDE.md). **209 tests at v1.1** (post-EDGAR-loader + RunPod operator + make_card-coverage-lift).
 
-- `tests/train/test_head.py` — forward-pass shape tests.
-- `tests/train/test_determinism.py` — 4 slow tests for seed reproducibility.
-- `tests/train/test_config.py` — pydantic config validation.
-- `tests/train/test_driver.py` — driver-level tests with mocks.
-- `tests/ablate/test_compare.py` — 13 tests (variant aggregation + CLI binding).
-- `tests/ablate/test_configs.py` — preset config overlay tests.
-- `tests/serve/test_integration.py` — vLLM/SGLang invocation generation.
-- `tests/serve/test_profile.py` — Nsight wrapper.
-- `tests/eval/test_acceptance.py` — geometric EAL + crossover + serve JSON walker + CLI.
-- `tests/eval/test_crossover_analysis.py` — per-key B\* report.
-- `tests/eval/test_plot.py` — matplotlib figure generation.
-- `tests/data/test_{prepare,sources,splits,tokenize,dedup,config}.py` — full data pipeline.
-- `tests/release/test_aggregate.py` — manifest aggregation + canonical CSV schema + CLI.
-- `tests/release/test_make_card.py` — HF card rendering + CLI.
-- `tests/release/test_main.py` — typer multi-command CLI.
-- `tests/test_demo_pipeline.py` — 2 slow regression tests for `make demo`.
+- `tests/train/test_head.py` - forward-pass shape tests.
+- `tests/train/test_determinism.py` - 4 slow tests for seed reproducibility.
+- `tests/train/test_config.py` - pydantic config validation.
+- `tests/train/test_driver.py` - driver-level tests with mocks.
+- `tests/ablate/test_compare.py` - 13 tests (variant aggregation + CLI binding).
+- `tests/ablate/test_configs.py` - preset config overlay tests.
+- `tests/serve/test_integration.py` - vLLM/SGLang invocation generation.
+- `tests/serve/test_profile.py` - Nsight wrapper.
+- `tests/eval/test_acceptance.py` - geometric EAL + crossover + serve JSON walker + CLI.
+- `tests/eval/test_crossover_analysis.py` - per-key B\* report.
+- `tests/eval/test_plot.py` - matplotlib figure generation.
+- `tests/data/test_{prepare,sources,splits,tokenize,dedup,config}.py` - full data pipeline.
+- `tests/release/test_aggregate.py` - manifest aggregation + canonical CSV schema + CLI.
+- `tests/release/test_make_card.py` - HF card rendering + CLI.
+- `tests/release/test_main.py` - typer multi-command CLI.
+- `tests/test_demo_pipeline.py` - 2 slow regression tests for `make demo`.
 
 **CI:** GitHub Actions 3-gate (`make audit`: ruff + mypy + pytest, conventional-commits via PR title check). See `.github/workflows/ci.yml`.
 
@@ -565,13 +565,13 @@ This section is for the user who wants to fill the `[NOT YET MEASURED]` markers 
 
 **Per-step contract** (full output from `make h100-oneliner`):
 
-1. `make h100-recommend` — live RunPod GPU table filtered to `≥80 GB`, `≤$3/hr`, sorted by perf/$. Top row is usually `NVIDIA H100 80GB HBM3` at ~$2.20/hr; `H100 NVL` at ~$2.40/hr gives 94 GB.
-2. `make h100-spec GPU_ID="NVIDIA H100 80GB HBM3"` — emits a JSON payload. Paste it into **RunPod UI → Pods → Custom → Deploy**. Replace `<paste your ssh public key>` with the output of `cat ~/.ssh/id_rsa.pub`.
+1. `make h100-recommend` - live RunPod GPU table filtered to `≥80 GB`, `≤$3/hr`, sorted by perf/$. Top row is usually `NVIDIA H100 80GB HBM3` at ~$2.20/hr; `H100 NVL` at ~$2.40/hr gives 94 GB.
+2. `make h100-spec GPU_ID="NVIDIA H100 80GB HBM3"` - emits a JSON payload. Paste it into **RunPod UI → Pods → Custom → Deploy**. Replace `<paste your ssh public key>` with the output of `cat ~/.ssh/id_rsa.pub`.
 3. Wait for `pod = RUNNING`. RunPod UI shows `host` and `port` (TCP 22).
-4. `make h100-push POD_ID=... SSH_HOST=<host> SSH_PORT=<port>` — `scp` the repo into `/workspace/`, then `ssh` runs `scripts/onboard_pod.sh` (HF cache isolation, GPU memory preflight, dep install).
-5. `make h100-run POD_ID=... SSH_HOST=<host> --n-seeds 1` — `ssh` runs `scripts/run_full_pipeline.sh`. Default 1 seed = ~3-4h on H100 NVL ≈ $8 spot; 3 seeds ≈ $24. The operator threads `SKIP_TRAIN` / `SKIP_ABLATE` / `SKIP_SERVE` / `N_SEEDS` into the remote shell.
-6. `make h100-status POD_ID=... SSH_HOST=<host>` — live `nvidia-smi` + last 50 lines of `pipeline.log`.
-7. `scp -P <port> -r root@<host>:/workspace/draftforge/results ./results` then `make h100-stop ...` — pull artifacts and terminate.
+4. `make h100-push POD_ID=... SSH_HOST=<host> SSH_PORT=<port>` - `scp` the repo into `/workspace/`, then `ssh` runs `scripts/onboard_pod.sh` (HF cache isolation, GPU memory preflight, dep install).
+5. `make h100-run POD_ID=... SSH_HOST=<host> --n-seeds 1` - `ssh` runs `scripts/run_full_pipeline.sh`. Default 1 seed = ~3-4h on H100 NVL ≈ $8 spot; 3 seeds ≈ $24. The operator threads `SKIP_TRAIN` / `SKIP_ABLATE` / `SKIP_SERVE` / `N_SEEDS` into the remote shell.
+6. `make h100-status POD_ID=... SSH_HOST=<host>` - live `nvidia-smi` + last 50 lines of `pipeline.log`.
+7. `scp -P <port> -r root@<host>:/workspace/draftforge/results ./results` then `make h100-stop ...` - pull artifacts and terminate.
 
 **Why a separate operator** (`scripts/operator_runpod.py`) and not a single bash script? Three reasons:
 
@@ -628,9 +628,9 @@ This section is for the user who wants to fill the `[NOT YET MEASURED]` markers 
 | `h100-push` | `scp: Connection refused` | pod not yet `RUNNING` | wait 60–90 s after Deploy; check RunPod UI status |
 | `h100-push` | `onboard_pod.sh` hangs at `apt-get install` | container disk < 50 GB free | set `containerDiskInGb = 200` (RunPod minimum is large enough) |
 | `h100-run` | `CUDA out of memory` after 1st epoch | Qwen3-4B bf16 + EAGLE head + Adam optimizer states exceed 80 GB | rerun with `GPU=NVIDIA H100 NVL` (94 GB) or `SKIP_ABLATE=1` and reduce batch |
-| `h100-run` | `RuntimeError: NaN loss` at step >500 | learning rate too high for tri-layer fusion | rerun with `LR=2e-4` (default is 5e-4) — set in `configs/eagle3_default.yaml` |
+| `h100-run` | `RuntimeError: NaN loss` at step >500 | learning rate too high for tri-layer fusion | rerun with `LR=2e-4` (default is 5e-4) - set in `configs/eagle3_default.yaml` |
 | `h100-run` | timeout after 24 h | pipeline genuinely ran 24 h ceiling | check `pipeline.log` via `h100-status`; if stage 2 still mid-run, restart with `SKIP_ABLATE=1 SKIP_SERVE=1 N_SEEDS=1` to finish stage 2 only |
-| `h100-stop` | `shutdown` rejected by RunPod | pod already terminated | check RunPod UI — terminate via UI if operator times out |
+| `h100-stop` | `shutdown` rejected by RunPod | pod already terminated | check RunPod UI - terminate via UI if operator times out |
 
 **Guardrails** (explicit, non-negotiable):
 
@@ -644,6 +644,6 @@ This section is for the user who wants to fill the `[NOT YET MEASURED]` markers 
 
 ---
 
-**[END OF WRITEUP — v1.0]**
+**[END OF WRITEUP - v1.0]**
 
 *Honest status: v1.0 ships the codebase, the orchestrator, the analysis tools, the HF card renderer, the placeholder release artifacts, and the RunPod one-command operator. GPU-bound measurements (loss curves, ITL tables, ablation winner, batch-size crossover) are marked `[NOT YET MEASURED]` and require a rented H100 run via the operator in Section 9. The integrity baseline forbids fabricated values; the v1.0 "completed version" is the code, not the numbers. Target: Qwen/Qwen3-4B-Instruct-2507; tri-layer fusion [7, 18, 29]; open-weight (no HF token).*
