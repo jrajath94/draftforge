@@ -1,4 +1,4 @@
-# ablate/ — EAGLE-3 architecture ablation
+# ablate/ - EAGLE-3 architecture ablation
 
 Varies one design choice at a time and reports the effect on training loss.
 
@@ -12,7 +12,7 @@ Varies one design choice at a time and reports the effect on training loss.
 | `mid_only` | `[18]` | mid-layer features only |
 
 Each variant trains with the same seed list (default `42 0 1234`),
-the same data, the same hyperparameters — only `eagle3.layer_indices` differs.
+the same data, the same hyperparameters - only `eagle3.layer_indices` differs.
 
 ## Quickstart
 
@@ -24,7 +24,7 @@ bash ablate/run_ablation.sh tri_layer final_layer      # 2 variants
 
 Writes:
 - `results/train/<variant>/<seed>/loss_curve.csv`
-- `results/ablation/comparison.json` & `.csv` — final-100-step mean ± std
+- `results/ablation/comparison.json` & `.csv` - final-100-step mean ± std
 
 ## Acceptance
 
