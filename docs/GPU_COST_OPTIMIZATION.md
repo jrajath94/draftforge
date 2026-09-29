@@ -472,16 +472,16 @@ promotion_decision:
 
 All pre-paid-run controls are in place:
 
-1. `train/config_smoke.yaml` — committed 50-step, single-seed smoke config on
+1. `train/config_smoke.yaml` - committed 50-step, single-seed smoke config on
    the real 4B target with production `[7, 18, 29]` taps.
 2. `MAX_STEPS` / `SMOKE_STEPS` env overrides in `train/train_eagle3.py`
    (`MAX_STEPS` wins when both are set).
 3. `ABLATE_VARIANTS` env support in `ablate/run_ablation.sh` (beats positional
    args).
-4. `release/bench.sh --dry-run` (or `DRY_RUN=1`) — prints model/head/batches/
+4. `release/bench.sh --dry-run` (or `DRY_RUN=1`) - prints model/head/batches/
    temps/domains plan without launching vLLM. Default batch sweep is `1 4 16`
    (rung 6); extend to `1 4 8 16 32` only after the crossover is bracketed.
-5. `scripts/run_full_pipeline.sh` preflight — refuses any non-smoke GPU stage
+5. `scripts/run_full_pipeline.sh` preflight - refuses any non-smoke GPU stage
    without `APPROVE_GPU_SPEND=yes`, refuses final training without
    `RUNPOD_VOLUME_PATH` (override: `ALLOW_NO_VOLUME_CACHE=1`), and `SMOKE=1`
    routes to the smoke config with ablate+serve skipped.
