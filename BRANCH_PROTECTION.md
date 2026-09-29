@@ -1,4 +1,4 @@
-# Branch Protection — DraftForge
+# Branch Protection - DraftForge
 
 Required GitHub branch-protection rules for `main`. Apply via
 repo Settings → Code and automation → Rules → Branches.
@@ -29,11 +29,11 @@ repo Settings → Code and automation → Rules → Branches.
 
 GitHub offers no native tag-protection UI. Conventions:
 
-1. **Release tags** (`vX.Y.Z`) — force-push forbidden.
+1. **Release tags** (`vX.Y.Z`) - force-push forbidden.
    `git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z` only in an
    emergency; bump to `vX.Y.Z-fix1` instead.
-2. **Pre-release tags** (`vX.Y.Z-rc.N`) — mutable; fast-forward allowed.
-3. Use `make tag VERSION=X.Y.Z` for all release tagging — see the Makefile.
+2. **Pre-release tags** (`vX.Y.Z-rc.N`) - mutable; fast-forward allowed.
+3. Use `make tag VERSION=X.Y.Z` for all release tagging - see the Makefile.
 
 ### Auto-merge via CI
 
