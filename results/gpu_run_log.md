@@ -1,8 +1,8 @@
-# GPU Run Log — DraftForge evidence ladder
+# GPU Run Log - DraftForge evidence ladder
 
 Required by docs/GPU_COST_OPTIMIZATION.md. One block per paid run.
 
-## Run 1 — evidence ladder (rungs 2-6, single pod)
+## Run 1 - evidence ladder (rungs 2-6, single pod)
 
 ```text
 date_utc: 2026-07-17/18
