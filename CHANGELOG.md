@@ -4,7 +4,7 @@ All notable changes to DraftForge are recorded here. Format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project adheres to
 [Semantic Versioning](https://semver.org/).
 
-Generated from `git log` — `[Unreleased]` section tracks the current cycle;
+Generated from `git log` - `[Unreleased]` section tracks the current cycle;
 each released version has a date stamp and groups changes by Conventional
 Commit type (feat / fix / perf / test / docs / chore / refactor).
 
@@ -24,7 +24,7 @@ Commit type (feat / fix / perf / test / docs / chore / refactor).
 
 ---
 
-## [1.6.0] — 2026-07-18 — Measured: 3-seed training + acceptance evidence lands
+## [1.6.0] - 2026-07-18 - Measured: 3-seed training + acceptance evidence lands
 
 First release with real GPU evidence. Full ladder executed on a community
 A100 SXM (~$14 total incl. one dud pod): 50-step smoke, 2-variant probe,
@@ -40,7 +40,7 @@ RunPod account torn down to zero after artifact pull.
   final_layer **4.104** final-mean loss (tri-layer −7.9%).
 - Figures + run log: `results/figures/loss_curves_measured.png`,
   `results/gpu_run_log.md`.
-- Serving-stack ITL/crossover remain `[NOT YET MEASURED]` — vLLM's
+- Serving-stack ITL/crossover remain `[NOT YET MEASURED]` - vLLM's
   EAGLE-3 loader expects the official weight schema; adapter documented
   in README Limitations.
 
@@ -59,28 +59,28 @@ RunPod account torn down to zero after artifact pull.
   `ablate.compare` and `release.aggregate` exclude ttt rows.
 - `ablate/run_ablation.sh` default results root → `results/ablate`
   (runner wrote `results/train/<variant>` while compare + docs read
-  `results/ablate` — comparison.json aggregated all-zeros).
+  `results/ablate` - comparison.json aggregated all-zeros).
 
 ---
 
-## [1.5.10] — 2026-07-18 — Patch: checkpoints exclude frozen target + prune (rung-5 finding)
+## [1.5.10] - 2026-07-18 - Patch: checkpoints exclude frozen target + prune (rung-5 finding)
 
 ### fix
 - The frozen 4B target is a registered submodule of `EAGLE3Head`, so
   `head.state_dict()` serialized the entire target (~8 GB bf16) into
-  every checkpoint — 10.9 GB per `trainer.pt`, seven of which filled
+  every checkpoint - 10.9 GB per `trainer.pt`, seven of which filled
   the 80 GB pod volume and killed seed 42 at step 1000 of the first
   real 3-seed run ("PytorchStreamWriter failed writing file").
   Checkpoints now exclude `target_model.*` keys (reconstructable from
   the HF hub) and prune older `checkpoint-<step>` dirs after each
-  successful save — ~3 GB per checkpoint, bounded per seed.
+  successful save - ~3 GB per checkpoint, bounded per seed.
 
 ---
 
-## [1.5.9] — 2026-07-18 — Patch: no hardcoded .venv python in ablation runner (rung-4 finding)
+## [1.5.9] - 2026-07-18 - Patch: no hardcoded .venv python in ablation runner (rung-4 finding)
 
 ### fix
-- `ablate/run_ablation.sh` hardcoded `.venv/bin/python` three times —
+- `ablate/run_ablation.sh` hardcoded `.venv/bin/python` three times -
   dead on any host without a repo-local venv (the pod runs system
   python). Now `"${PYTHON:-python}"`, matching the rest of the
   orchestration scripts.
@@ -93,7 +93,7 @@ RunPod account torn down to zero after artifact pull.
 
 ---
 
-## [1.5.8] — 2026-07-18 — Patch: RoPE position_embeddings for head decoder blocks (smoke-rung finding 8)
+## [1.5.8] - 2026-07-18 - Patch: RoPE position_embeddings for head decoder blocks (smoke-rung finding 8)
 
 ### fix
 - Modern HF decoder layers receive RoPE as a precomputed
@@ -107,19 +107,19 @@ RunPod account torn down to zero after artifact pull.
 
 ---
 
-## [1.5.7] — 2026-07-18 — Patch: fp32 head under bf16 target (smoke-rung finding 7)
+## [1.5.7] - 2026-07-18 - Patch: fp32 head under bf16 target (smoke-rung finding 7)
 
 ### fix
 - With the target in bf16, the head crashed with "mat1 and mat2 must
   have the same dtype": deep-copied decoder blocks and lm_head carried
   the target's bf16 while fresh fusion weights were fp32. Head dtype
-  policy is now explicit — fp32 compute end-to-end (decoder-block and
+  policy is now explicit - fp32 compute end-to-end (decoder-block and
   lm_head copies cast to fp32 at init; hidden states cast at the fusion
   boundary). Regression test runs the head under a bf16 stub target.
 
 ---
 
-## [1.5.6] — 2026-07-18 — Patch: 4-D bool packed attention mask (smoke-rung finding 6)
+## [1.5.6] - 2026-07-18 - Patch: 4-D bool packed attention mask (smoke-rung finding 6)
 
 ### fix
 - Packed collate emitted a 3-D `(B, L, L)` int64 block-diagonal mask;
@@ -131,7 +131,7 @@ RunPod account torn down to zero after artifact pull.
 
 ---
 
-## [1.5.5] — 2026-07-18 — Patch: bool label mask (smoke-rung finding 5)
+## [1.5.5] - 2026-07-18 - Patch: bool label mask (smoke-rung finding 5)
 
 ### fix
 - First real GPU batch crashed at the label mask:
@@ -140,18 +140,18 @@ RunPod account torn down to zero after artifact pull.
   mask now stays bool end-to-end.
 
 ### refactor
-- Label building extracted from `main()` into `build_masked_labels()` —
+- Label building extracted from `main()` into `build_masked_labels()` -
   the block was inline and untestable, which is why the CPU suite never
   caught the dtype promotion. Three regression tests pin the dtype, the
   packed doc-boundary masking, and the unpacked shift.
 
 ---
 
-## [1.5.4] — 2026-07-18 — Patch: real ShareGPT dataset id (smoke-rung finding 4)
+## [1.5.4] - 2026-07-18 - Patch: real ShareGPT dataset id (smoke-rung finding 4)
 
 ### fix
 - ShareGPT source default pointed at
-  `yuhuili/EAGLE3-LLaMA3.1-Instruct-8B` — a MODEL repo, which
+  `yuhuili/EAGLE3-LLaMA3.1-Instruct-8B` - a MODEL repo, which
   `load_dataset` cannot read (DatasetNotFoundError on the pod). Default
   is now `Aeala/ShareGPT_Vicuna_unfiltered` (~68K ShareGPT
   conversations; verified live against the HF datasets API, and the
@@ -160,12 +160,12 @@ RunPod account torn down to zero after artifact pull.
 
 ---
 
-## [1.5.3] — 2026-07-18 — Patch: pipeline data stage + fresh-clone config (smoke-rung findings 2+3)
+## [1.5.3] - 2026-07-18 - Patch: pipeline data stage + fresh-clone config (smoke-rung findings 2+3)
 
 ### fix
 - `scripts/run_full_pipeline.sh` gains stage 0b: prepare + tokenize data
   (CPU) when `artifacts/data/tokenized/train` is absent. Previously the
-  "full pipeline" had no data stage at all — a fresh pod died at
+  "full pipeline" had no data stage at all - a fresh pod died at
   training with FileNotFoundError; data prep lived only in
   onboard_pod.sh's `--limit 100` smoke test. `SKIP_DATA=1` opts out.
 - `data/config.yaml` default no longer references
@@ -176,7 +176,7 @@ RunPod account torn down to zero after artifact pull.
 
 ---
 
-## [1.5.2] — 2026-07-18 — Patch: plain-torch launcher (smoke-rung finding)
+## [1.5.2] - 2026-07-18 - Patch: plain-torch launcher (smoke-rung finding)
 
 ### fix
 - First real GPU smoke (rung 3, A100) falsified the launch path:
@@ -196,19 +196,19 @@ RunPod account torn down to zero after artifact pull.
 
 ---
 
-## [1.5.1] — 2026-07-17 — Patch: CI checkout needs tags for provenance suite
+## [1.5.1] - 2026-07-17 - Patch: CI checkout needs tags for provenance suite
 
 ### ci
 - `ci.yml` audit + coverage jobs check out with `fetch-depth: 0` and
   `fetch-tags: true`. The release-provenance suite asserts against
   `git tag` and `git rev-list <tag>..HEAD`; the default shallow,
   tagless checkout made those tests fail in CI ("no v* git tags exist
-  in repo") even when the repo state was correct — the cause of the
+  in repo") even when the repo state was correct - the cause of the
   red `ci` runs on the v1.4.1 and v1.5.0 tips.
 
 ---
 
-## [1.5.0] — 2026-07-17 — Frugal 4B Target: Spend Gates + Honest Card
+## [1.5.0] - 2026-07-17 - Frugal 4B Target: Spend Gates + Honest Card
 
 "Frugality" version. Retargets training to the open-weight
 Qwen3-4B-Instruct-2507 and hard-gates every GPU dollar behind explicit
@@ -230,7 +230,7 @@ real serve bench, `[NOT YET MEASURED]` until then).
 - Soft HF auth pre-flight (default target is open-weight);
   `DRAFTFORGE_SKIP_HF_AUTH=1` for CPU runs.
 - Stdlib fallbacks when `datasketch`/`datasets` extras are absent
-  (Jaccard dedupe, synthetic demo splits) — CPU demo runs on a fresh
+  (Jaccard dedupe, synthetic demo splits) - CPU demo runs on a fresh
   laptop install.
 - `release/aggregate.py` accepts legacy artifact paths
   (`results/ablation`, flat acceptance grid).
@@ -254,7 +254,7 @@ real serve bench, `[NOT YET MEASURED]` until then).
 
 ---
 
-## [1.3.0] — 2026-07-13 — Cost Reduction: Packing + Concurrent + Community
+## [1.3.0] - 2026-07-13 - Cost Reduction: Packing + Concurrent + Community
 
 "Cost-reduction" version. Halves per-seed GPU spend and triples training
 throughput on the existing 3-seed training loop, without changing the
@@ -328,20 +328,20 @@ packed-training path end-to-end on CPU.
 
 ### Test
 - 53 new tests across 6 modules:
-  - `tests/train/test_packing.py` — 16 tests pinning FFD invariants
+  - `tests/train/test_packing.py` - 16 tests pinning FFD invariants
     (capacity, block-diag, per-doc RoPE reset, doc_starts ordering,
     total-token preservation, determinism).
-  - `tests/train/test_collate_packed.py` — 7 tests covering collator
+  - `tests/train/test_collate_packed.py` - 7 tests covering collator
     output (FFD-order doc_starts, attention-mask shape, position-id
     reset, dtype, empty/edge cases).
-  - `tests/train/test_run_concurrent_seeds.py` — 6 tests for the
+  - `tests/train/test_run_concurrent_seeds.py` - 6 tests for the
     concurrent runner (parallelism, per-seed logs, seed/gpu markers,
     N_SEEDS override, child-failure propagation).
-  - `tests/test_operator_runpod_v13.py` — 14 tests for community tier,
+  - `tests/test_operator_runpod_v13.py` - 14 tests for community tier,
     volume-id, and the new `concurrent` subcommand dispatcher.
-  - `tests/test_onboard_pod_v13.py` — 7 tests for the network-volume
+  - `tests/test_onboard_pod_v13.py` - 7 tests for the network-volume
     cache + HF isolation behavior in `scripts/onboard_pod.sh`.
-  - `tests/train/test_packing_smoke.py` — 2 CPU end-to-end tests
+  - `tests/train/test_packing_smoke.py` - 2 CPU end-to-end tests
     exercising collate_packed → label-mask → compute_loss via stub head.
 - New `tests/train/test_driver.py::test_compute_loss_passes_position_ids_and_attention_mask_to_head`
   pins the kwargs path through `compute_loss` (prior test only covered
@@ -369,13 +369,13 @@ packed-training path end-to-end on CPU.
 
 ---
 
-## [1.4.1] — 2026-07-15 — Patch: GitHub Release page + release-provenance suite
+## [1.4.1] - 2026-07-15 - Patch: GitHub Release page + release-provenance suite
 
 Patch-level bump on top of the v1.4.0 retro-labeled seal. v1.4.0
 shipped the 13-commit Release Hygiene + Developer Experience deliverable
 but did not publish a GitHub Release page; `gh release list` returned
 `[]` before this release. v1.4.1 closes that gap **and** adds a
-second release-test layer — the **provenance suite** — that pins the
+second release-test layer - the **provenance suite** - that pins the
 branch topology behind a release (peel, ancestor, remote-publish,
 heading-shape). No model / training / runtime code changes vs v1.4.0.
 
@@ -387,7 +387,7 @@ heading-shape). No model / training / runtime code changes vs v1.4.0.
   invariants plus two `TestChangelogHeadingShape` invariants plus two
   `TestSkipOnPrEnforced` decorator-self-tests. See
   `release-notes-v1.4.1.md` for the per-test contract.
-- **`release-notes-v1.4.1.md`** — body file for `gh release create
+- **`release-notes-v1.4.1.md`** - body file for `gh release create
   v1.4.1`. Mirrors the AgentSLA v1.0.1 release-notes template
   (highlights → quality gates → honesty notes → reproducer). The
   first GH Release page this repo has shipped.
@@ -413,11 +413,11 @@ heading-shape). No model / training / runtime code changes vs v1.4.0.
 
 ---
 
-## [1.4.0] — 2026-07-15 — Release Hygiene + Developer Experience
+## [1.4.0] - 2026-07-15 - Release Hygiene + Developer Experience
 
 Retroactive release label for the 13 commits that landed on `main` after
 the v1.3.0 tag but before this release. No model / training / runtime
-code changes — pure release-infrastructure + dev-experience hardening so
+code changes - pure release-infrastructure + dev-experience hardening so
 the next v1.5.0 cycle ships faster and more safely. **285 tests pass**
 unchanged from v1.3.0; `ruff check .` and `mypy --strict` clean; the
 new `tests/release/test_release_consistency.py` pins pyproject ↔ CHANGELOG
@@ -439,7 +439,7 @@ new `tests/release/test_release_consistency.py` pins pyproject ↔ CHANGELOG
 - **`make tag VERSION=X.Y.Z` atomic release target** (`Makefile`,
   `d9c0c94`): one command runs `ruff check && mypy . && pytest`,
   validates the CHANGELOG has the new version, bumps `pyproject.toml`,
-  commits, and tags — all idempotent on re-run.
+  commits, and tags - all idempotent on re-run.
 - **CodeQL workflow** (`.github/workflows/codeql.yml`, `ee422f7`):
   GitHub-native security scanning on every push + weekly schedule.
   Simplified in `f2b1bef` to job-level perms + single-language matrix
@@ -448,12 +448,12 @@ new `tests/release/test_release_consistency.py` pins pyproject ↔ CHANGELOG
   auto-closes inactive issues + PRs after the configured dormancy
   window. Keeps the issue tracker readable for human maintainers.
 - **Structured issue templates** (`.github/ISSUE_TEMPLATE/question.yml`,
-  `3570d7f`): two new templates — `question.yml` (Q&A / support) and
-  `docs.yml` (docs-only fixes) — supplement the pre-existing
+  `3570d7f`): two new templates - `question.yml` (Q&A / support) and
+  `docs.yml` (docs-only fixes) - supplement the pre-existing
   `bug.yml` + `feature.yml`.
 - **`BRANCH_PROTECTION.md` required-rules playbook**
   (`docs/BRANCH_PROTECTION.md`, `a362f44`): docs-only playbook for
-  repo admins — exactly which GitHub branch-protection rules to enable
+  repo admins - exactly which GitHub branch-protection rules to enable
   for `main` so CI gates cannot be bypassed by direct push.
 - **`tests/release/test_release_consistency.py`** (this release):
   pins pyproject ↔ CHANGELOG ↔ git-tag alignment. Catches the exact
@@ -467,7 +467,7 @@ new `tests/release/test_release_consistency.py` pins pyproject ↔ CHANGELOG
   not pinned. Now enforced as the floor for both local `pytest` and
   the CI run.
 - **`CITATION.cff` re-aligned to release tag** (`CITATION.cff`,
-  `2ac63a2`): prior drift — the v1.3.0 release had CITATION pinned at
+  `2ac63a2`): prior drift - the v1.3.0 release had CITATION pinned at
   v1.2.x. Now bumped to v1.4.0 here so Zenodo / HF / GitHub citation
   metadata matches the actual tag.
 
@@ -509,13 +509,13 @@ new `tests/release/test_release_consistency.py` pins pyproject ↔ CHANGELOG
 - The `make audit` + `make packing-smoke` + `make h100-oneliner` CI
   gates from v1.3.0 are unchanged. The new gates (commitlint, CodeQL,
   pre-commit, release-consistency) are additive.
-- Per workspace `CLAUDE.md` "never mark phase complete — human does",
+- Per workspace `CLAUDE.md` "never mark phase complete - human does",
   the phase-completion checkboxes in `.planning/REQUIREMENTS.md` remain
   unchecked until you review the diff and sign off.
 
 ---
 
-## [1.2.0] — 2026-07-13 — Research-Grade Hygiene + Qwen3-4B Migration
+## [1.2.0] - 2026-07-13 - Research-Grade Hygiene + Qwen3-4B Migration
 
 "Research-grade" version. Scrubs planning documents from git history,
 locks Qwen3-4B-Instruct-2507 as the canonical target (latest
@@ -528,21 +528,21 @@ use EAGLE-3. **221 tests pass** (up from 209 at v1.1); `make audit` clean;
 **GitHub Actions CI green (3/3 jobs: conventional-commits, audit, coverage)**.
 
 ### Added
-- **`.github/CODE_OF_CONDUCT.md`** — Contributor Covenant 2.1 with
+- **`.github/CODE_OF_CONDUCT.md`** - Contributor Covenant 2.1 with
   contact `rajath@example.com`.
-- **`.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.md`** —
+- **`.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.md`** -
   disable blank issues, link to Discussions, structured reproduction /
   problem / solution / acceptance-criteria sections.
-- **`.github/PULL_REQUEST_TEMPLATE.md`** — Problem / Approach / Evidence
+- **`.github/PULL_REQUEST_TEMPLATE.md`** - Problem / Approach / Evidence
   / Tradeoffs / Out of scope / Checklist per parent `CLAUDE.md` PR
   hygiene standard.
-- **`.github/dependabot.yml`** — weekly pip + github-actions, grouped
+- **`.github/dependabot.yml`** - weekly pip + github-actions, grouped
   minor/patch upgrades.
-- **`.github/release-drafter.yml`** — Conventional Commits → semver
+- **`.github/release-drafter.yml`** - Conventional Commits → semver
   release notes automation.
-- **`CITATION.cff`** — CFF 1.2.0, references EAGLE-3 paper (Li et al.,
+- **`CITATION.cff`** - CFF 1.2.0, references EAGLE-3 paper (Li et al.,
   NeurIPS 2025) + Qwen3-4B-Instruct-2507.
-- **`train/layer_indices.py` + 21 regression tests** —
+- **`train/layer_indices.py` + 21 regression tests** -
   `layer_indices_for_depth(num_hidden_layers, taps=(0.20, 0.50, 0.80))`
   implements the EAGLE-3 rescale rule `round(t × L)` (not `round(t × (L-1))`)
   so the helper works for any target depth. Pins Qwen3-4B 36-layer → [7,18,29]
@@ -588,7 +588,7 @@ use EAGLE-3. **221 tests pass** (up from 209 at v1.1); `make audit` clean;
 
 ---
 
-## [1.1.0] — 2026-07-09 — Operator + Coverage + RunPod Fix
+## [1.1.0] - 2026-07-09 - Operator + Coverage + RunPod Fix
 
 "Codebase + GPU operator" version. Adds a one-command RunPod operator that
 makes the GPU-bound portion of the pipeline (Section 9 of WRITEUP.md) a
@@ -615,7 +615,7 @@ to 100%.
 - **`data/sources/edgar.py` (SEC EDGAR fallback loader).** Public XBRL
   company-facts API; no auth; honors fair-access policy (User-Agent
   required, 0.15 s rate limit). Emits one Q&A per (entity, concept,
-  fiscal-year) — 8 default issuers × 5 us-gaap concepts × 12 yrs ≈ 480
+  fiscal-year) - 8 default issuers × 5 us-gaap concepts × 12 yrs ≈ 480
   rows. Wired into `data/config.py` as `SourceType.EDGAR` + a new
   `edgar-finance` source entry in `data/config.yaml`.
 - **WRITEUP §9 expanded.** RunPod Custom Deploy form ASCII diagram (1:1
@@ -646,7 +646,7 @@ to 100%.
 
 ---
 
-## [1.0.0] — 2026-07-09 — Milestone v1.0 (CODE-READY + ARTIFACTS-READY)
+## [1.0.0] - 2026-07-09 - Milestone v1.0 (CODE-READY + ARTIFACTS-READY)
 
 "Completed version" of the project: every file the README points to exists, every
 CLI is wired, every orchestrator has a `__main__` block, the HF release artifacts
@@ -656,36 +656,36 @@ are placeholders that survive `make card`, and the writeup is filled (with
 is the CI gate.
 
 ### Added
-- `scripts/verify.sh` — walks every CLI entrypoint (`python -m <module> --help`)
+- `scripts/verify.sh` - walks every CLI entrypoint (`python -m <module> --help`)
   and proves argparse/typer binding. Wired to `make verify`. Output:
   `passed: 10, failed: 0, skipped: 1` (1 skip = `serve.bench`, library only).
-- `scripts/upload_hf.sh` — HuggingFace upload wrapper with **integrity guard**:
+- `scripts/upload_hf.sh` - HuggingFace upload wrapper with **integrity guard**:
   refuses to upload a `model.safetensors` smaller than 1 MiB (placeholder size).
   Forces the developer to actually train before publishing.
-- `release/hf_config.json` — EAGLE-3 head config schema for HF Hub upload
+- `release/hf_config.json` - EAGLE-3 head config schema for HF Hub upload
   (model_type, layer_indices, num_decoder_layers, hidden_size, target_model).
-- `release/training_config.yaml` — hyperparam snapshot for HF Hub upload, with
+- `release/training_config.yaml` - hyperparam snapshot for HF Hub upload, with
   `head_release.is_placeholder: true` provenance block.
-- `release/head.placeholder.safetensors` — 164-byte valid safetensors containing
+- `release/head.placeholder.safetensors` - 164-byte valid safetensors containing
   a single zero tensor named `placeholder`. `scripts/upload_hf.sh` size guard
   refuses to upload it.
-- `WRITEUP.md` — filled-in NeurIPS-style writeup (8 sections + references) with
+- `WRITEUP.md` - filled-in NeurIPS-style writeup (8 sections + references) with
   every `[PLACEHOLDER]` resolved to either a measured value, an honest
   `[NOT YET MEASURED]` marker, or design prose.
-- `examples/quickstart_acceptance.py` — runnable CPU snippet exercising
+- `examples/quickstart_acceptance.py` - runnable CPU snippet exercising
   `eval/acceptance` and `eval/crossover_analysis` (60-row synthetic grid).
-- `examples/quickstart_serve.py` — runnable CPU snippet that renders vLLM +
+- `examples/quickstart_serve.py` - runnable CPU snippet that renders vLLM +
   SGLang invocations from `serve/integrate.py`.
-- `examples/quickstart_data.py` — runnable CPU snippet that inspects
+- `examples/quickstart_data.py` - runnable CPU snippet that inspects
   `data/config.yaml` via the pydantic schema.
-- `examples/README.md` — index of the quickstart snippets.
-- `Makefile` `make all` target — chains `setup + audit + demo + card + writeup + verify`
+- `examples/README.md` - index of the quickstart snippets.
+- `Makefile` `make all` target - chains `setup + audit + demo + card + writeup + verify`
   to produce every no-GPU artifact in one command.
-- `Makefile` `make verify` target — runs `scripts/verify.sh`.
-- `Makefile` `make card` target — renders `HF_CARD.md` (substitutes
+- `Makefile` `make verify` target - runs `scripts/verify.sh`.
+- `Makefile` `make card` target - renders `HF_CARD.md` (substitutes
   `release/hf_card.md` template with `Qwen/Qwen3-4B` + `draftforge-eagle3-head`).
-- `Makefile` `make writeup` target — asserts `WRITEUP.md` is present.
-- `Makefile` `make figures` target — documented (regenerated by `make demo`).
+- `Makefile` `make writeup` target - asserts `WRITEUP.md` is present.
+- `Makefile` `make figures` target - documented (regenerated by `make demo`).
 
 ### Changed
 - `data/config.yaml`: fixed finance source mis-labeled `domain: general` →
@@ -729,10 +729,10 @@ is the CI gate.
 
 ---
 
-## [0.1.0] — 2026-07-09 — Milestone v0.1 (CODE-READY)
+## [0.1.0] - 2026-07-09 - Milestone v0.1 (CODE-READY)
 
 First complete release. All 6 phases shipped; 147 tests pass, 82.9% aggregate coverage,
-ruff + mypy clean across 32 source files. GPU bench numbers `[NOT YET MEASURED]` —
+ruff + mypy clean across 32 source files. GPU bench numbers `[NOT YET MEASURED]` -
 user-runtime.
 
 ### Added
@@ -760,7 +760,7 @@ user-runtime.
 - **Post-milestone coverage gap closure**: 53 new tests across 4 rounds, lifting aggregate
   coverage 67.6% → 82.9%
 - **Real production bug fix**: `data/sources/finance.py:_results_path_check` had a dead
-  branch (`_FIXTURE_PATH in path.parents` — `_FIXTURE_PATH` is a file path; `path.parents`
+  branch (`_FIXTURE_PATH in path.parents` - `_FIXTURE_PATH` is a file path; `path.parents`
   only contains directories). Discovered by writing the negative-path test.
 
 ### Security
