@@ -58,7 +58,7 @@ target.layers[29] ─┘
 
 - **Model:** `Qwen/Qwen3-4B-Instruct-2507` (36 hidden layers, hidden_size=2560, vocab=151936, ~4B parameters).
 - **Target:** frozen (no gradient through target model; `requires_grad=False` on all target params).
-- **Head:** trainable (~[N_HEAD_PARAMS]M parameters — fusion_proj + decoder blocks + lm_head copy).
+- **Head:** trainable (~[N_HEAD_PARAMS]M parameters - fusion_proj + decoder blocks + lm_head copy).
 - **Optimizer:** AdamW (lr=[LR], betas=([BETA1], [BETA2]), weight_decay=[WD], eps=1e-8).
 - **Scheduler:** linear warmup over `[WARMUP_STEPS]` steps, then cosine decay to 0 over `max_steps=[MAX_STEPS]`.
 - **Batch size:** `[PER_DEVICE_BATCH_SIZE]` per device, gradient accumulation `[GRAD_ACCUM]` steps → effective batch `[EFFECTIVE_BS]`.
@@ -127,7 +127,7 @@ Crossover point (B*): batch size at which speculative ITL meets baseline ITL, de
 **Baseline:** `Qwen/Qwen3-4B-Instruct-2507` without speculation (autoregressive, KV-cached).
 **Speculative:** `Qwen/Qwen3-4B-Instruct-2507` with EAGLE-3 draft head (`num_speculative_tokens=4`).
 
-Results (per domain, temperature, batch — all measured on H100 NVL 94GB, bf16):
+Results (per domain, temperature, batch - all measured on H100 NVL 94GB, bf16):
 
 | Condition              | Baseline ITL (ms) | Spec ITL (ms) | Reduction | Acceptance |
 |------------------------|-------------------|---------------|-----------|------------|
@@ -199,8 +199,8 @@ Beyond batch size `[B*]`, speculation no longer helps:
 
 The crossover is **sharp** (a 1-2 batch-step transition from speedup to neutral-or-regression) because draft and verify scale differently with batch:
 
-- **Draft:** O(B · d_model · d_decoder) — compute-bound at small B.
-- **Verify:** O(B · L · d_model) — compute-bound at large B, dominated by KV-cache memory bandwidth.
+- **Draft:** O(B · d_model · d_decoder) - compute-bound at small B.
+- **Verify:** O(B · L · d_model) - compute-bound at large B, dominated by KV-cache memory bandwidth.
 
 **Implication for production:** Use speculation for small-batch workloads (b ≤ `[B*]`), disable for large-batch requests. vLLM/SGLang routers should conditionally enable based on `len(active_sequences)` at request time.
 
@@ -369,13 +369,13 @@ bash scripts/run_nsight.sh \
 
 **Files:**
 
-- `config.json` — EAGLE-3 head architecture spec (layer_indices, num_decoder_layers, hidden_size).
-- `model.safetensors` — trained weights (bf16, head-only; target model not re-uploaded).
-- `training_config.yaml` — reproducible hyperparams (lr, betas, weight_decay, warmup, max_steps, batch, seed).
-- `README.md` — this writeup (rendered to HF model card format).
-- `training_log.csv` — loss curves for all `[N_SEEDS]` seeds (`step,train_loss,val_loss,seed`).
-- `results/acceptance_grid.csv` — batch-size crossover data.
-- `LICENSE` — MIT.
+- `config.json` - EAGLE-3 head architecture spec (layer_indices, num_decoder_layers, hidden_size).
+- `model.safetensors` - trained weights (bf16, head-only; target model not re-uploaded).
+- `training_config.yaml` - reproducible hyperparams (lr, betas, weight_decay, warmup, max_steps, batch, seed).
+- `README.md` - this writeup (rendered to HF model card format).
+- `training_log.csv` - loss curves for all `[N_SEEDS]` seeds (`step,train_loss,val_loss,seed`).
+- `results/acceptance_grid.csv` - batch-size crossover data.
+- `LICENSE` - MIT.
 
 **Model Card:** [LINK TO HF MODEL CARD]
 
@@ -399,23 +399,23 @@ huggingface-cli upload [ORG]/qwen3-4b-eagle3-finance \
 
 **Key files:**
 
-- `train/head.py` — `EAGLE3Head` module (tri-layer fusion, fresh decoder blocks, lm_head copy).
-- `train/train_eagle3.py` — training loop (DeepSpeed, training-time-test, loss logging).
-- `train/config.yaml` — pydantic-validated training config.
-- `train/ds_config.json` — DeepSpeed ZeRO-2 single-GPU.
-- `data/prepare.py` — ingest, dedup, stratified split.
-- `data/dedup.py` — exact (SHA256) + MinHash dedup.
-- `ablate/run_ablation.sh` — 4 fusion presets × `[N_SEEDS]` seeds.
-- `serve/integrate.py` — vLLM + SGLang invocation builders.
-- `serve/bench.py` — request-level ITL/acceptance benchmark.
-- `eval/acceptance.py` — geometric EAL + `crossover_batch_size` model.
-- `eval/crossover_analysis.py` — per-key B* report generator.
-- `release/aggregate.py` — results → `manifest.json` (HF upload manifest).
-- `release/make_card.py` — `manifest.json` → HF model card markdown.
-- `release/writeup_template.md` — this file.
-- `scripts/run_full_pipeline.sh` — one-command reproduction.
-- `scripts/onboard_pod.sh` — RunPod pod setup (project namespacing, HF cache).
-- `scripts/run_nsight.sh` — Nsight Systems wrapper.
+- `train/head.py` - `EAGLE3Head` module (tri-layer fusion, fresh decoder blocks, lm_head copy).
+- `train/train_eagle3.py` - training loop (DeepSpeed, training-time-test, loss logging).
+- `train/config.yaml` - pydantic-validated training config.
+- `train/ds_config.json` - DeepSpeed ZeRO-2 single-GPU.
+- `data/prepare.py` - ingest, dedup, stratified split.
+- `data/dedup.py` - exact (SHA256) + MinHash dedup.
+- `ablate/run_ablation.sh` - 4 fusion presets × `[N_SEEDS]` seeds.
+- `serve/integrate.py` - vLLM + SGLang invocation builders.
+- `serve/bench.py` - request-level ITL/acceptance benchmark.
+- `eval/acceptance.py` - geometric EAL + `crossover_batch_size` model.
+- `eval/crossover_analysis.py` - per-key B* report generator.
+- `release/aggregate.py` - results → `manifest.json` (HF upload manifest).
+- `release/make_card.py` - `manifest.json` → HF model card markdown.
+- `release/writeup_template.md` - this file.
+- `scripts/run_full_pipeline.sh` - one-command reproduction.
+- `scripts/onboard_pod.sh` - RunPod pod setup (project namespacing, HF cache).
+- `scripts/run_nsight.sh` - Nsight Systems wrapper.
 
 **Test surface:** `pytest` (target coverage ≥75% per CLAUDE.md). `tests/train/test_head.py`, `tests/train/test_determinism.py`, `tests/ablate/test_*.py`, `tests/serve/test_integration.py`, `tests/eval/test_acceptance.py`, `tests/eval/test_crossover.py`, `tests/data/test_*.py`.
 
